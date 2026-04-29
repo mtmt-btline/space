@@ -19,3 +19,40 @@ target
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# --- WASM / Rust build outputs ---
+engine/pkg/
+web/pkg/
+
+# --- Node / Vite outputs ---
+web/node_modules/
+web/dist/
+web/dist-ssr/
+web/.vite/
+web/coverage/
+web/*.tsbuildinfo
+web/logs/
+web/*.log
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/pnpm-debug.log*
+web/lerna-debug.log*
+web/*.local
+web/.env.local
+web/.env.*.local
+web/.vscode/*
+!web/.vscode/extensions.json
+web/.idea
+web/*.suo
+web/*.ntvs*
+web/*.njsproj
+web/*.sln
+web/*.sw?
+
+# --- Local env / OS files ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+.DS_Store
