@@ -1,7 +1,6 @@
 /**
- * WASM モック実装
- * requirements-physics.md で定義された API の型定義とスタブ実装
- * 本番時には実際の WASM バイナリに置き換える
+ * WASM インターフェース
+ * Rust で実装された WASM バックエンドとの連携を担当
  */
 
 /**
@@ -44,218 +43,162 @@ export interface MissionState {
   message?: string;
 }
 
-/**
- * シミュレーション状態全体
- */
-export interface SimulationSnapshot {
-  bodies: Body[];
-  telemetry: Telemetry;
-  mission: MissionState;
+type TimeScale = 0 | 1 | 2 | 4;
+
+interface SimulationBackend {
+  step(dt: number): void;
+  launch_rocket(angle: number, speed: number): void;
+  set_time_scale(scale: TimeScale): void;
+  get_time_scale(): TimeScale;
+  get_bodies(): Body[];
+  get_telemetry(): Telemetry;
+  get_mission_state(): MissionState;
+  reset(): void;
+}
+
+interface RustSimulationEngine {
+  step(dt: number): void;
+  launch_rocket(angle: number, speed: number): void;
+  set_time_scale(scale: number): void;
+  get_time_scale(): number;
+  get_bodies(): Body[];
+  get_telemetry(): Telemetry;
+  get_mission_state(): MissionState;
+  reset(): void;
+}
+
+interface RustWasmModule {
+  default: () => Promise<unknown>;
+  SimulationEngine: new () => RustSimulationEngine;
+}
+
+let rustBackendFactory: (() => SimulationBackend) | null = null;
+let initPromise: Promise<void> | null = null;
+
+function isTimeScale(value: number): value is TimeScale {
+  return value === 0 || value === 1 || value === 2 || value === 4;
+}
+
+class RustBackendAdapter implements SimulationBackend {
+  private readonly engine: RustSimulationEngine;
+
+  constructor(engine: RustSimulationEngine) {
+    this.engine = engine;
+  }
+
+  step(dt: number): void {
+    this.engine.step(dt);
+  }
+
+  launch_rocket(angle: number, speed: number): void {
+    this.engine.launch_rocket(angle, speed);
+  }
+
+  set_time_scale(scale: TimeScale): void {
+    this.engine.set_time_scale(scale);
+  }
+
+  get_time_scale(): TimeScale {
+    const timeScale = this.engine.get_time_scale();
+    return isTimeScale(timeScale) ? timeScale : 1;
+  }
+
+  get_bodies(): Body[] {
+    return this.engine.get_bodies();
+  }
+
+  get_telemetry(): Telemetry {
+    return this.engine.get_telemetry();
+  }
+
+  get_mission_state(): MissionState {
+    return this.engine.get_mission_state();
+  }
+
+  reset(): void {
+    this.engine.reset();
+  }
+}
+
+async function loadRustBackendFactory(): Promise<() => SimulationBackend> {
+  const wasmModule =
+    (await import("../wasm/pkg/space_wasm.js")) as RustWasmModule;
+
+  await wasmModule.default();
+
+  return () => new RustBackendAdapter(new wasmModule.SimulationEngine());
+}
+
+export async function initWasmInterface(): Promise<void> {
+  if (initPromise) {
+    return initPromise;
+  }
+
+  initPromise = (async () => {
+    rustBackendFactory = await loadRustBackendFactory();
+  })();
+
+  return initPromise.catch((error: unknown) => {
+    rustBackendFactory = null;
+    const reason =
+      error instanceof Error ? error.message : "Unknown initialization error";
+    throw new Error(
+      `Rust WASM backend initialization failed: ${reason}. Run npm run wasm:build before starting the app.`,
+    );
+  });
+}
+
+function createBackend(): SimulationBackend {
+  if (!rustBackendFactory) {
+    throw new Error(
+      "Rust WASM backend is not initialized. Call initWasmInterface() before getWasmInstance().",
+    );
+  }
+
+  return rustBackendFactory();
 }
 
 /**
  * WASM インターフェース
- * モック実装による開発用インターフェース
+ * 既存 UI が使う API 互換のアダプタ
  */
-export class WasmInterface {
-  private simulationTime: number = 0;
-  private rocketLaunched: boolean = false;
-  private launchAngle: number = 0;
-  private launchSpeed: number = 0;
-  private timeScale: 0 | 1 | 2 | 4 = 1;
-  private missionStatus: "idle" | "running" | "finished" = "idle";
-  private missionSuccess: boolean = false;
+export class WasmInterface implements SimulationBackend {
+  private readonly backend: SimulationBackend;
 
   constructor() {
-    this.reset();
+    this.backend = createBackend();
   }
 
-  /**
-   * シミュレーション時間を進める
-   * @param dt 時間ステップ (秒)
-   */
   step(dt: number): void {
-    if (this.missionStatus !== "running") return;
-    if (this.timeScale === 0) return;
-
-    this.simulationTime += dt * this.timeScale;
-
-    // ロケット発射後、一定時間で完了
-    if (this.rocketLaunched) {
-      // 10秒後にミッション完了（仮）
-      if (this.simulationTime > 10) {
-        this.missionStatus = "finished";
-        this.missionSuccess = true;
-      }
-    }
+    this.backend.step(dt);
   }
 
-  /**
-   * ロケットを発射
-   * @param angle 発射角度 (0-90 度)
-   * @param speed 発射速度 (m/s)
-   */
   launch_rocket(angle: number, speed: number): void {
-    if (this.missionStatus === "idle") {
-      this.rocketLaunched = true;
-      this.missionStatus = "running";
-      this.launchAngle = angle;
-      this.launchSpeed = speed;
-      this.simulationTime = 0;
-    }
+    this.backend.launch_rocket(angle, speed);
   }
 
-  set_time_scale(scale: 0 | 1 | 2 | 4): void {
-    this.timeScale = scale;
+  set_time_scale(scale: TimeScale): void {
+    this.backend.set_time_scale(scale);
   }
 
-  get_time_scale(): 0 | 1 | 2 | 4 {
-    return this.timeScale;
+  get_time_scale(): TimeScale {
+    return this.backend.get_time_scale();
   }
 
-  /**
-   * 全天体のデータを取得
-   */
   get_bodies(): Body[] {
-    const bodies: Body[] = [
-      {
-        id: 0,
-        name: "Sun",
-        position: { x: 0, y: 0 },
-        velocity: { x: 0, y: 0 },
-        radius: 20,
-        mass: 1.989e30,
-      },
-      {
-        id: 1,
-        name: "Earth",
-        position: { x: 150, y: 0 },
-        velocity: { x: 0, y: 30 },
-        radius: 6,
-        mass: 5.972e24,
-      },
-      {
-        id: 2,
-        name: "Moon",
-        position: { x: 160, y: 0 },
-        velocity: { x: 0, y: 31 },
-        radius: 1.7,
-        mass: 7.342e22,
-      },
-    ];
-
-    // ロケット発射時のみロケットを追加（開発用）
-    if (this.rocketLaunched && this.missionStatus === "running") {
-      const rocketX =
-        this.launchSpeed *
-        Math.cos((this.launchAngle * Math.PI) / 180) *
-        this.simulationTime;
-      const rocketY =
-        this.launchSpeed *
-          Math.sin((this.launchAngle * Math.PI) / 180) *
-          this.simulationTime -
-        0.5 * 9.8 * this.simulationTime ** 2;
-
-      bodies.push({
-        id: 999,
-        name: "Rocket",
-        position: { x: rocketX, y: Math.max(0, rocketY) },
-        velocity: {
-          x: this.launchSpeed * Math.cos((this.launchAngle * Math.PI) / 180),
-          y:
-            this.launchSpeed * Math.sin((this.launchAngle * Math.PI) / 180) -
-            9.8 * this.simulationTime,
-        },
-        radius: 2,
-      });
-    }
-
-    return bodies;
+    return this.backend.get_bodies();
   }
 
-  /**
-   * テレメトリデータを取得
-   */
   get_telemetry(): Telemetry {
-    let rocketHeight = 0;
-    let rocketVelocity = 0;
-    let gravityAcceleration = 9.8;
-    let nearestBodyName = "Earth";
-    let nearestBodyDistance = 0;
-
-    if (this.rocketLaunched && this.missionStatus === "running") {
-      const rocketX =
-        this.launchSpeed *
-        Math.cos((this.launchAngle * Math.PI) / 180) *
-        this.simulationTime;
-      const rocketY = Math.max(
-        0,
-        this.launchSpeed *
-          Math.sin((this.launchAngle * Math.PI) / 180) *
-          this.simulationTime -
-          0.5 * 9.8 * this.simulationTime ** 2,
-      );
-      const vY =
-        this.launchSpeed * Math.sin((this.launchAngle * Math.PI) / 180) -
-        9.8 * this.simulationTime;
-      rocketHeight = Math.max(
-        0,
-        this.launchSpeed *
-          Math.sin((this.launchAngle * Math.PI) / 180) *
-          this.simulationTime -
-          0.5 * 9.8 * this.simulationTime ** 2,
-      );
-      rocketVelocity = Math.sqrt(
-        (this.launchSpeed * Math.cos((this.launchAngle * Math.PI) / 180)) ** 2 +
-          vY ** 2,
-      );
-
-      const distances = [
-        { name: "Earth", distance: Math.hypot(rocketX - 150, rocketY) },
-        { name: "Moon", distance: Math.hypot(rocketX - 160, rocketY) },
-        { name: "Sun", distance: Math.hypot(rocketX, rocketY) },
-      ].sort((left, right) => left.distance - right.distance);
-
-      nearestBodyName = distances[0].name;
-      nearestBodyDistance = distances[0].distance;
-      gravityAcceleration = Math.max(
-        0.5,
-        9.8 / Math.max(1, nearestBodyDistance / 20),
-      );
-    }
-
-    return {
-      elapsed_time: this.simulationTime,
-      rocket_height: rocketHeight,
-      rocket_velocity: rocketVelocity,
-      gravity_acceleration: gravityAcceleration,
-      nearest_body_name: nearestBodyName,
-      nearest_body_distance: nearestBodyDistance,
-    };
+    return this.backend.get_telemetry();
   }
 
-  /**
-   * ミッション状態を取得
-   */
   get_mission_state(): MissionState {
-    return {
-      status: this.missionStatus,
-      success: this.missionSuccess,
-      message: this.missionSuccess ? "Mission accomplished!" : undefined,
-    };
+    return this.backend.get_mission_state();
   }
 
-  /**
-   * シミュレーションをリセット
-   */
   reset(): void {
-    this.simulationTime = 0;
-    this.rocketLaunched = false;
-    this.launchAngle = 0;
-    this.launchSpeed = 0;
-    this.timeScale = 1;
-    this.missionStatus = "idle";
-    this.missionSuccess = false;
+    this.backend.reset();
   }
 }
 

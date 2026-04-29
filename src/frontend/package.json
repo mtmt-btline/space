@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "wasm:build": "wasm-pack build wasm/space-wasm --target web --out-dir ../../src/wasm/pkg --out-name space_wasm",
+    "predev": "npm run wasm:build",
+    "prebuild": "npm run wasm:build",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

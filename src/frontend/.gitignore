@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+public/wasm/pkg
+src/wasm/pkg
 *.local
 
 # Editor directories and files
