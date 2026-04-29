@@ -1,12 +1,454 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>N体重力シミュレーション</title>
+  <style>
+    :root {
+      --bg-canvas: #0c1326;
+      --fg-primary: #f4f6fb;
+      --fg-secondary: rgba(244, 246, 251, 0.6);
+      --panel-bg: rgba(12, 19, 38, 0.72);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent-sun: #f5c531;
+      --accent-earth: #5aa9f0;
+      --accent-danger: #ef6a5e;
+      --accent-success: #6dd58c;
+      --radius-panel: 14px;
+      --blur-panel: blur(12px) saturate(1.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-canvas);
+      color: var(--fg-primary);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    #sim-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      background: var(--bg-canvas);
+    }
+
+    .panel {
+      position: fixed;
+      z-index: 20;
+      background: var(--panel-bg);
+      backdrop-filter: var(--blur-panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+    }
+
+    .top-bar {
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 14px;
+      min-height: 56px;
+    }
+
+    .title-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+      color: var(--fg-primary);
+      white-space: nowrap;
+    }
+
+    .focus-label {
+      color: var(--fg-secondary);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .hint-card {
+      left: 14px;
+      bottom: 14px;
+      width: min(330px, calc(100vw - 28px));
+      padding: 13px 14px;
+      font-size: 12px;
+      line-height: 1.64;
+    }
+
+    .hint-card h2,
+    .launch-panel h2,
+    .gravity-panel h2,
+    .telemetry h2 {
+      margin: 0 0 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      color: var(--fg-secondary);
+    }
+
+    .telemetry {
+      top: 78px;
+      right: 14px;
+      width: min(320px, calc(100vw - 28px));
+      padding: 12px 14px;
+    }
+
+    .telemetry.hidden {
+      display: none;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px 10px;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .telemetry-grid dt {
+      margin: 0;
+      color: var(--fg-secondary);
+    }
+
+    .telemetry-grid dd {
+      margin: 0;
+      text-align: right;
+      color: var(--fg-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .launch-panel {
+      right: 14px;
+      bottom: 14px;
+      width: min(340px, calc(100vw - 28px));
+      padding: 14px;
+    }
+
+    .gravity-panel {
+      right: 14px;
+      top: 280px;
+      width: min(300px, calc(100vw - 28px));
+      padding: 14px;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 64px 1fr 56px;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .control-row label {
+      color: var(--fg-secondary);
+    }
+
+    .control-row .value {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: var(--fg-primary);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-earth);
+    }
+
+    .top-controls input[type="range"] {
+      width: 150px;
+    }
+
+    .range-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--fg-secondary);
+      font-size: 12px;
+    }
+
+    .muted {
+      color: var(--fg-secondary);
+      font-size: 12px;
+    }
+
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--fg-primary);
+      border-radius: 999px;
+      font-size: 12px;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .primary {
+      border-color: rgba(90, 169, 240, 0.55);
+      background: rgba(90, 169, 240, 0.17);
+    }
+
+    .toggle-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-top: 4px;
+      color: var(--fg-secondary);
+    }
+
+    .rocket-list {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .rocket-entry {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .rocket-chip {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      border-color: rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .rocket-chip.active {
+      background: rgba(90, 169, 240, 0.24);
+      border-color: rgba(90, 169, 240, 0.72);
+    }
+
+    .rocket-delete {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      padding: 0;
+      color: #ffd7d4;
+      border-color: rgba(239, 106, 94, 0.38);
+      background: rgba(239, 106, 94, 0.14);
+      line-height: 1;
+    }
+
+    .mission-toast {
+      position: fixed;
+      z-index: 40;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease, transform 220ms ease;
+      background: rgba(12, 19, 38, 0.8);
+      backdrop-filter: var(--blur-panel);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .mission-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .mission-toast.success {
+      color: var(--accent-success);
+      border-color: rgba(109, 213, 140, 0.5);
+    }
+
+    .mission-toast.danger {
+      color: var(--accent-danger);
+      border-color: rgba(239, 106, 94, 0.5);
+    }
+
+    @media (max-width: 940px) {
+      .top-bar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .telemetry {
+        top: 132px;
+      }
+
+      .gravity-panel {
+        top: auto;
+        bottom: 262px;
+      }
+
+      .hint-card {
+        width: min(300px, calc(100vw - 28px));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .top-controls {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .top-controls input[type="range"] {
+        width: 120px;
+      }
+
+      .telemetry,
+      .launch-panel,
+      .gravity-panel,
+      .hint-card {
+        width: calc(100vw - 20px);
+        left: 10px;
+        right: 10px;
+      }
+
+      .telemetry {
+        top: 126px;
+      }
+
+      .gravity-panel {
+        bottom: 278px;
+      }
+
+      .launch-panel {
+        bottom: 10px;
+      }
+
+      .hint-card {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <canvas id="sim-canvas"></canvas>
+
+  <header class="panel top-bar">
+    <div class="title-wrap">
+      <h1>N体重力シミュレーション</h1>
+      <span class="focus-label" id="focus-label">追従なし</span>
+    </div>
+    <div class="top-controls">
+      <button type="button" id="pause-btn">一時停止</button>
+      <label class="range-inline">
+        Time
+        <input id="time-scale" type="range" min="0.1" max="3" step="0.1" value="1" />
+        <span id="time-scale-value">1.0x</span>
+      </label>
+      <button type="button" id="reset-btn">リセット</button>
+    </div>
+  </header>
+
+  <aside class="panel hint-card">
+    <h2>操作ヒント</h2>
+    <div>地球をドラッグ: 発射方向と速度を指定</div>
+    <div>右下パネル: 角度・速度で発射</div>
+    <div>背景ドラッグ: カメラをパン</div>
+    <div>ホイール: ズーム</div>
+    <div>天体クリック: 追従カメラ / Esc: 解除</div>
+  </aside>
+
+  <aside class="panel telemetry hidden" id="telemetry-panel">
+    <h2>Telemetry <span id="telemetry-rocket-id"></span></h2>
+    <dl class="telemetry-grid">
+      <dt>Speed</dt>
+      <dd id="telemetry-speed">-</dd>
+      <dt>Altitude</dt>
+      <dd id="telemetry-altitude">-</dd>
+      <dt>Gravity</dt>
+      <dd id="telemetry-gravity">-</dd>
+      <dt>Nearest</dt>
+      <dd id="telemetry-nearest">-</dd>
+    </dl>
+  </aside>
+
+  <aside class="panel gravity-panel">
+    <h2>Gravity Scale</h2>
+    <div class="control-row">
+      <label for="gravity-sun">太陽</label>
+      <input id="gravity-sun" type="range" min="0" max="3" step="0.05" value="1" />
+      <span class="value" id="gravity-sun-value">1.00</span>
+    </div>
+    <div class="control-row">
+      <label for="gravity-earth">地球</label>
+      <input id="gravity-earth" type="range" min="0" max="3" step="0.05" value="1" />
+      <span class="value" id="gravity-earth-value">1.00</span>
+    </div>
+    <div class="control-row">
+      <label for="gravity-moon">月</label>
+      <input id="gravity-moon" type="range" min="0" max="3" step="0.05" value="1" />
+      <span class="value" id="gravity-moon-value">1.00</span>
+    </div>
+  </aside>
+
+  <aside class="panel launch-panel">
+    <h2>Launch Control</h2>
+    <div class="control-row">
+      <label for="launch-angle">角度</label>
+      <input id="launch-angle" type="range" min="-180" max="180" step="1" value="28" />
+      <span class="value" id="launch-angle-value">28°</span>
+    </div>
+    <div class="control-row">
+      <label for="launch-speed">速度</label>
+      <input id="launch-speed" type="range" min="0.2" max="18" step="0.1" value="6" />
+      <span class="value" id="launch-speed-value">6.00</span>
+    </div>
+    <button class="primary" type="button" id="launch-btn">ロケット発射</button>
+
+    <div class="toggle-line">
+      <label><input id="toggle-orbits" type="checkbox" checked /> 軌道ガイド</label>
+      <label><input id="toggle-prediction" type="checkbox" checked /> 予測軌道</label>
+      <label><input id="toggle-ufo" type="checkbox" checked /> UFO</label>
+    </div>
+
+    <div class="rocket-list" id="rocket-list"></div>
+  </aside>
+
+  <div class="mission-toast" id="mission-toast"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
