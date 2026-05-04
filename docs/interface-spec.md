@@ -19,19 +19,17 @@ UI（web）と物理計算（engine）を疎結合にし、並行開発を可能
 ## 4. 用語
 
 - body: 太陽・惑星・月などの天体
-- craft: ロケット/人工衛星などの飛行体
+- rocket: ロケット/人工衛星などの飛行体
 - snapshot: ある時刻の描画用状態
 
 ## 5. 前提事項
 
 - 座標系: 太陽基準
 - 時間ステップ契約: web は 1 回の step で進めるシミュレーション秒を渡し、engine 内部で固定サブステップ積分
-- 天体の識別子: 固定IDを採用（天体種別ごとにID帯を分離）
-  - 恒星: 0-9（Sun=0）
-  - 惑星: 10-99（Mercury=10, Venus=20, Earth=30, Mars=40）
-  - 衛星: 100-199（Moon=131。Earth=30 の衛星として 130 番台を利用）
-- 太陽（Sun=0）は座標系の原点に固定（x=0, y=0）
-- craft 数上限は engine 側の固定値を使用（API で設定しない）
+- 天体の識別子: 固定IDを採用（連番）
+  - Sun=1, Mercury=2, Venus=3, Earth=4, Moon=5, Mars=6, Jupiter=7
+- 太陽（Sun=1）は座標系の原点に固定（x=0, y=0）
+- rocket 数上限は engine 側の固定値を使用（API で設定しない）
 - 天体の初期状態は engine 側の既定軌道を使用し、任意の x, y, vx, vy は受け付けない
 - UI から変更可能な初期値は、別APIで「既定軌道上の位相」などの限定パラメータのみを指定する
   - `configure_initial_orbit` を呼ばない場合は、engine 既定の初期位相を使用する
@@ -48,12 +46,13 @@ UI（web）と物理計算（engine）を疎結合にし、並行開発を可能
 - step(control: Float64Array) -> i32
 - get_snapshot_meta() -> Uint32Array
 - get_snapshot_bodies() -> Float64Array
-- get_snapshot_crafts() -> Float64Array
+- get_snapshot_rockets() -> Float64Array
 - get_events() -> Uint32Array
-- launch_craft(req: Float64Array) -> Uint32Array
-- get_craft_telemetry(req: Uint32Array) -> Float64Array
+- launch_rocket(req: Float64Array) -> Uint32Array
+- get_rocket_telemetry(req: Uint32Array) -> Float64Array
 - predict_orbit(req: Float64Array) -> Float64Array
 - reset_sim() -> i32
+- set_gravity_scale(req: Float64Array) -> i32
 
 注記:
 - i32 の返却はステータスコード（0: 成功、非0: エラー）
@@ -118,7 +117,7 @@ new Float64Array([60.0])
 
 ### 7.3 get_snapshot_meta
 
-**概要**: 現フレームのシミュレーション状態メタデータを取得。body・craft・event の件数と現在の tick 数を返す。可変長データを取得する前に必ず呼び出す。
+**概要**: 現フレームのシミュレーション状態メタデータを取得。body・rocket・event の件数と現在の tick 数を返す。可変長データを取得する前に必ず呼び出す。
 
 - 入力: なし
 - 出力: Uint32Array length=4
@@ -126,7 +125,7 @@ new Float64Array([60.0])
 | index | 説明 | 例 |
 |---|---|---|
 | [0] | body レコード数 | 6 |
-| [1] | craft レコード数 | 2 |
+| [1] | rocket レコード数 | 2 |
 | [2] | event レコード数 | 1 |
 | [3] | シミュレーションtick（`step` 成功ごとに +1 される内部更新番号） | 1842 |
 
@@ -157,7 +156,7 @@ new Uint32Array([6, 2, 1, 1842])
 
 | index | 説明 | 例 |
 |---|---|---|
-| [0] | 固定ID | 30（Earth） |
+| [0] | 固定ID | 4（Earth） |
 | [1] | x座標 | 149.6 |
 | [2] | y座標 | 0.0 |
 | [3] | x方向速度 | 0.0 |
@@ -169,8 +168,8 @@ new Uint32Array([6, 2, 1, 1842])
 
 ```ts
 new Float64Array([
-  0, 0.0, 0.0, 0.0, 0.0, 20.0, 333000.0,
-  30, 149.6, 0.0, 0.0, 29.78, 6.0, 1.0,
+  1, 0.0, 0.0, 0.0, 0.0, 20.0, 333000.0,
+  4, 149.6, 0.0, 0.0, 29.78, 6.0, 1.0,
 ])
 ```
 
@@ -179,31 +178,31 @@ new Float64Array([
 - body/craft/event は更新頻度や利用目的が異なるため、分割取得の方が無駄コピーを減らせる。
 - UI 側はラッパー関数で統合呼び出しできるため、利用コードの煩雑さは吸収可能。
 
-### 7.5 get_snapshot_crafts
+### 7.5 get_snapshot_rockets
 
-**概要**: 全飛行体（craft）の位置・速度・ミッション状態を取得。描画とUI情報表示に使用。
+**概要**: 全ロケット（rocket）の位置・速度・ミッション状態を取得。描画とUI情報表示に使用。
 
 - 入力: なし
-- 出力: Float64Array length=飛行体数 * 7
-- 1 craft あたりのレコード（7要素）
+- 出力: Float64Array length=ロケット数 * 7
+- 1 rocket あたりのレコード（7要素）
 
 補足:
 - body と同様に 1 次元 TypedArray を採用し、WASM <-> UI 間のコピーとGC負荷を最小化する。
 
 | index | 説明 | 例 |
 |---|---|---|
-| [0] | craft 識別子 | 1 |
+| [0] | rocket 識別子 | 1 |
 | [1] | x座標 | 150.2 |
 | [2] | y座標 | 0.4 |
 | [3] | x方向速度 | 0.8 |
 | [4] | y方向速度 | 31.2 |
 | [5] | ミッション状態コード | 0 |
-| [6] | 最接近天体の識別子 | 30 |
+| [6] | 最接近天体の識別子 | 4 |
 
-出力サンプル（1 craft）:
+出力サンプル（1 rocket）:
 
 ```ts
-new Float64Array([1, 150.2, 0.4, 0.8, 31.2, 0, 30])
+new Float64Array([1, 150.2, 0.4, 0.8, 31.2, 0, 4])
 ```
 
 ### 7.6 get_events
@@ -217,25 +216,25 @@ new Float64Array([1, 150.2, 0.4, 0.8, 31.2, 0, 30])
 | index | 説明 | 例 |
 |---|---|---|
 | [0] | イベント種別コード | 1（mission） |
-| [1] | 対象飛行体の識別子 | 1 |
-| [2] | 関連天体の識別子 | 131（Moon） |
-| [3] | 詳細コード | 1（moon_reached） |
+| [1] | 対象ロケット識別子 | 1 |
+| [2] | 関連天体の識別子 | 5（Moon） |
+| [3] | 詳細コード | 1（reached_moon） |
 
 - 取得契約: 前回取得以降に発生したイベントを全件返却し、読み取り後に内部キューをクリア
 
 出力サンプル（1 event）:
 
 ```ts
-new Uint32Array([1, 1, 131, 1])
+new Uint32Array([1, 1, 5, 1])
 ```
 
-### 7.7 launch_craft
+### 7.7 launch_rocket
 
-**概要**: 指定された天体から飛行体を発射する。初速度・角度・発射モードを指定。成功時に新しい飛行体の識別子を返す。
+**概要**: 指定された天体からロケットを発射する。初速度・角度・発射モードを指定。成功時に新しいロケット識別子を返す。
 
 補足:
 - この API はフレーム内の細かい発射時刻までは表現しない。
-- `launch_craft` は「発射要求を登録するAPI」とし、反映タイミングは次の `step` 呼び出し開始時とする。
+- `launch_rocket` は「発射要求を登録するAPI」とし、反映タイミングは次の `step` 呼び出し開始時とする。
 - したがって発射タイミングの粒度は `step` 呼び出し単位であり、同一フレーム内の途中時刻は区別しない。
 - 現要件では発射角度・初速・発射操作は求められているが、フレーム内の厳密な発射時刻指定は求められていないため、この粒度で問題ない。
 
@@ -244,7 +243,7 @@ new Uint32Array([1, 1, 131, 1])
 | index | 説明 | 例 |
 |---|---|---|
 | [0] | 発射モード（0: 手動。角度・初速をそのまま使用 / 1: 自動。円軌道相当の初速を engine が自動計算） | 0 |
-| [1] | 発射元天体の識別子 | 30（Earth） |
+| [1] | 発射元天体の識別子 | 4（Earth） |
 | [2] | 発射角度（度）※ mode=1 の場合は無視可 | 45.0 |
 | [3] | 初速 ※ mode=1 の場合は無視可 | 8.2 |
 
@@ -253,16 +252,16 @@ new Uint32Array([1, 1, 131, 1])
 | index | 説明 | 例 |
 |---|---|---|
 | [0] | ステータスコード | 0 |
-| [1] | 作成された飛行体の識別子 | 7 |
+| [1] | 作成されたロケット識別子 | 7 |
 
 - 返却契約:
   - 成功時はその場で飛行体の識別子を返す。
-  - ただし返した飛行体が座標列に現れるのは、次回 `step` 実行後の `get_snapshot_crafts` 以降とする。
+  - ただし返したロケットが座標列に現れるのは、次回 `step` 実行後の `get_snapshot_rockets` 以降とする。
 
 入力サンプル:
 
 ```ts
-new Float64Array([0, 30, 45.0, 8.2])
+new Float64Array([0, 4, 45.0, 8.2])
 ```
 
 出力サンプル:
@@ -271,25 +270,25 @@ new Float64Array([0, 30, 45.0, 8.2])
 new Uint32Array([0, 7])
 ```
 
-### 7.8 get_craft_telemetry
+### 7.8 get_rocket_telemetry
 
-**概要**: 特定の飛行体の詳細テレメトリーを取得。速度・高度・加速度・最寄り天体情報を返す。UI パネル更新時に使用。
+**概要**: 特定のロケットの詳細テレメトリーを取得。速度・高度・加速度・最寄り天体情報を返す。UI パネル更新時に使用。
 
 - 入力: Uint32Array length=1
 
 | index | 説明 | 例 |
 |---|---|---|
-| [0] | 対象飛行体の識別子 | 7 |
+| [0] | 対象ロケット識別子 | 7 |
 
 - 出力: Float64Array length=7
 
 | index | 説明 | 例 |
 |---|---|---|
-| [0] | 対象飛行体の識別子 | 7 |
+| [0] | 対象ロケット識別子 | 7 |
 | [1] | 速度 | 8.05 |
 | [2] | 地球からの高度 | 1234.5 |
 | [3] | 加速度 | 0.021 |
-| [4] | 最寄り天体ID | 131 |
+| [4] | 最寄り天体ID | 5 |
 | [5] | 最寄り天体までの距離 | 233.1 |
 | [6] | ミッション状態コード | 0 |
 
@@ -302,7 +301,7 @@ new Uint32Array([7])
 出力サンプル:
 
 ```ts
-new Float64Array([7, 8.05, 1234.5, 0.021, 131, 233.1, 0])
+new Float64Array([7, 8.05, 1234.5, 0.021, 5, 233.1, 0])
 ```
 
 ### 7.9 predict_orbit
@@ -314,7 +313,7 @@ new Float64Array([7, 8.05, 1234.5, 0.021, 131, 233.1, 0])
 | index | 説明 | 例 |
 |---|---|---|
 | [0] | 発射モード | 0 |
-| [1] | 発射元天体の識別子 | 30 |
+| [1] | 発射元天体の識別子 | 4 |
 | [2] | 発射角度（度） | 45.0 |
 | [3] | 初速 | 8.2 |
 | [4] | 予測点数 | 256 |
@@ -332,7 +331,7 @@ new Float64Array([7, 8.05, 1234.5, 0.021, 131, 233.1, 0])
 入力サンプル:
 
 ```ts
-new Float64Array([0, 30, 45.0, 8.2, 256, 0.05])
+new Float64Array([0, 4, 45.0, 8.2, 256, 0.05])
 ```
 
 出力サンプル（先頭3点のみ例示）:
@@ -347,7 +346,7 @@ new Float64Array([
 
 ### 7.10 reset_sim
 
-**概要**: シミュレーションを初期状態にリセット。全 craft を削除し、時刻を 0 に戻す。
+**概要**: シミュレーションを初期状態にリセット。全 rocket を削除し、時刻を 0 に戻す。
 
 - 入力: なし
 - 出力: i32 status
@@ -356,6 +355,26 @@ new Float64Array([
 
 ```ts
 0
+```
+
+### 7.11 set_gravity_scale
+
+**概要**: 指定天体の重力スケールを変更する。1.0 が標準値で、0.0 で重力無効化。`reset_sim` 後は全天体が 1.0 に戻る。
+
+- 入力: Float64Array length=2
+
+| index | 説明 | 例 |
+|---|---|---|
+| [0] | 対象天体の識別子 | 1（Sun） |
+| [1] | 重力スケール（0.0 以上） | 2.0 |
+
+- 出力: i32 status
+- 制約: scale は 0.0 以上。上限は engine 側の固定値を使用する（現 web 実装では 3.0）。
+
+入力サンプル:
+
+```ts
+new Float64Array([1, 2.0])
 ```
 
 ## 8. 列挙値定義
@@ -391,13 +410,13 @@ API 関数の戻り値（i32）。engine 側での処理結果を示す。
 
 ### 8.2 mission_state
 
-craft のミッション状態。get_snapshot_crafts の出力 [5] および get_craft_telemetry の出力 [6] に含まれる。
+rocket のミッション状態。get_snapshot_rockets の出力 [5] および get_rocket_telemetry の出力 [6] に含まれる。
 
 | 値 | 定数名 | 説明 |
 |---|---|---|
 | 0 | flying | 飛行中 |
-| 1 | moon_reached | 月に到達 |
-| 2 | sun_fallen | 太陽に落下 |
+| 1 | reached_moon | 月に到達 |
+| 2 | fell_into_sun | 太陽に落下 |
 | 3 | out_of_bounds | シミュレーション範囲外に逃出 |
 | 4 | collided | 衝突 |
 
@@ -416,18 +435,20 @@ craft のミッション状態。get_snapshot_crafts の出力 [5] および get
 
 body のカテゴリ。天体の識別子から種別を判定する際に参考。
 
-| 値 | 定数名 | ID帯 | 説明 |
+| 値 | 定数名 | ID | 説明 |
 |---|---|---|---|
-| 0 | star | 0-9 | 恒星（太陽など） |
-| 1 | planet | 10-99 | 惑星 |
-| 2 | satellite | 100-199 | 衛星・月など |
+| 0 | star | 1 | 恒星（Sun） |
+| 1 | planet | 2, 3, 4, 6, 7 | 惑星（Mercury, Venus, Earth, Mars, Jupiter） |
+| 2 | satellite | 5 | 衛星（Moon） |
 
 **判定例**:
 ```ts
+const STAR_IDS = new Set([1]);
+const SATELLITE_IDS = new Set([5]);
 const getBodyKind = (bodyId: number) => {
-  if (bodyId <= 9) return 0;  // star
-  if (bodyId <= 99) return 1; // planet
-  return 2;                     // satellite
+  if (STAR_IDS.has(bodyId)) return 0;      // star
+  if (SATELLITE_IDS.has(bodyId)) return 2; // satellite
+  return 1;                                 // planet
 };
 ```
 
@@ -445,21 +466,21 @@ graph TD
     FrameLoop -->|"毎フレーム"| Input["📥 ユーザー入力を収集"]
     Input --> Decision{"ユーザー操作<br/>判定"}
     
-    Decision -->|"発射要求"| Launch["2️⃣ launch_craft"]
+    Decision -->|"発射要求"| Launch["2️⃣ launch_rocket"]
     Launch --> Step
 
     Decision -->|"通常"| Step["3️⃣ step<br/>(進める秒数を渡す)"]
     Step --> GetMeta["4️⃣ get_snapshot_meta<br/>(件数取得)"]
     GetMeta --> GetBodies["5️⃣ get_snapshot_bodies"]
-    GetBodies --> GetCrafts["6️⃣ get_snapshot_crafts"]
+    GetBodies --> GetCrafts["6️⃣ get_snapshot_rockets"]
     GetCrafts --> GetEvents["7️⃣ get_events"]
     GetEvents --> Preview{"プレビュー中？"}
     
     Preview -->|Yes| Predict["8️⃣ predict_orbit<br/>(軌道予測表示)"]
     Predict --> Telemetry
-    Preview -->|No| Telemetry{"craft<br/>選択中？"}
+    Preview -->|No| Telemetry{"rocket<br/>選択中？"}
     
-    Telemetry -->|Yes| Telem["9️⃣ get_craft_telemetry<br/>(パネル更新)"]
+    Telemetry -->|Yes| Telem["9️⃣ get_rocket_telemetry<br/>(パネル更新)"]
     Telem --> Render
     Telemetry -->|No| Render["📊 描画・UI更新"]
     Render --> Decision2{"リセット<br/>要求？"}
@@ -477,10 +498,10 @@ graph TD
 | 毎フレーム | `step` | 常に | 時間進行、物理更新 |
 | 毎フレーム | `get_snapshot_meta` | 常に | 描画用データの件数を先読み |
 | 毎フレーム | `get_snapshot_bodies` | 常に | body 座標・描画パラメータ取得 |
-| 毎フレーム | `get_snapshot_crafts` | 常に | craft 座標・ミッション状態取得 |
+| 毎フレーム | `get_snapshot_rockets` | 常に | rocket 座標・ミッション状態取得 |
 | 毎フレーム | `get_events` | 常に | 新規イベント確認、ポップアップ表示 |
-| 毎フレーム | `get_craft_telemetry` | craft 選択時 | 詳細情報パネル更新 |
-| ユーザー操作 | `launch_craft` | 発射時 | 発射要求を登録し、次の `step` で反映 |
+| 毎フレーム | `get_rocket_telemetry` | rocket 選択時 | 詳細情報パネル更新 |
+| ユーザー操作 | `launch_rocket` | 発射時 | 発射要求を登録し、次の `step` で反映 |
 | プレビュー中 | `predict_orbit` | 発射前のみ | 軌道予測表示用 |
 | ユーザー操作 | `reset_sim` | リセット時 | 初期状態へ戻す |
 
