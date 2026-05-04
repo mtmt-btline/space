@@ -33,15 +33,14 @@ const BODY_VENUS: u32 = 3;
 const BODY_EARTH: u32 = 4;
 const BODY_MOON: u32 = 5;
 const BODY_MARS: u32 = 6;
-const BODY_JUPITER: u32 = 7;
 
 // ─── 物理定数・シミュレーションパラメータ ────────────────────────────────────
 const G: f64 = 0.06;
-const SOFTENING_SQ: f64 = 4.0; // 数値安定化のためのソフトニング係数²
+const GRAVITY_SOFTENING_SQ: f64 = 0.04; // 重力計算用のソフトニング係数²
 const RESTITUTION: f64 = 0.92; // 衝突時の反発係数
 const FIXED_MASS: f64 = 1e9; // 固定天体の仮想質量（衝突応答計算用）
-const SUBSTEPS: usize = 4; // 1フレームあたりの積分ステップ数
-const SUBSTEPS_F64: f64 = 4.0;
+const SUBSTEPS: usize = 8; // 1フレームあたりの積分ステップ数
+const SUBSTEPS_F64: f64 = 8.0;
 const MAX_ROCKETS: usize = 5; // 同時飛行ロケット最大数
 const WORLD_BOUNDS: f64 = 2200.0; // この絶対座標を超えたロケットは Out of Bounds
 const MAX_GRAVITY_SCALE: f64 = 3.0; // 重力スケール上限
@@ -55,8 +54,9 @@ struct Body {
     vx: f64,
     vy: f64,
     mass: f64,
-    radius: f64,
-    fixed: bool, // true のとき位置を固定（太陽など）
+    radius: f64,        // 物理判定用半径
+    render_radius: f64, // 描画用半径
+    fixed: bool,        // true のとき位置を固定（太陽など）
 }
 
 /// ロケットの飛行状態。
@@ -160,8 +160,10 @@ impl Simulation {
         }
 
         let rad = deg_to_rad(req.angle_deg);
-        let x = origin.x + (origin.radius + 2.5) * rad.cos();
-        let y = origin.y + (origin.radius + 2.5) * rad.sin();
+        // 打ち上げ地点は描画半径を優先して、見た目の天体外縁から発進させる。
+        let launch_radius = origin.render_radius.max(origin.radius);
+        let x = origin.x + (launch_radius + 2.5) * rad.cos();
+        let y = origin.y + (launch_radius + 2.5) * rad.sin();
 
         let vx = origin.vx + req.speed * rad.cos();
         let vy = origin.vy + req.speed * rad.sin();
@@ -185,7 +187,7 @@ impl Simulation {
 
         // 発射予約を rockets に追加してからサブステップ積分を開始する
         self.apply_pending_launches();
-        let clamped = dt_seconds.min(0.05); // フレーム落ち時の暴走防止
+        let clamped = dt_seconds.min(0.033); // フレーム落ち時の暴走防止
 
         for _ in 0..SUBSTEPS {
             let sub_dt = clamped / SUBSTEPS_F64;
@@ -281,7 +283,7 @@ fn circular_velocity(radius: f64, center_mass: f64) -> f64 {
 /// 太陽を中心とした円軌道に天体を配置する。
 /// 位相 `phase_deg` の方向に天体を置き、接線方向に円軌道速度を与える。
 fn make_orbiting_body(id: u32, radius_orbit: f64, phase_deg: f64, mass: f64, radius: f64) -> Body {
-    let sun_mass = 50000.0;
+    let sun_mass = 333_000.0;
     let theta = deg_to_rad(phase_deg);
     let v = circular_velocity(radius_orbit, sun_mass);
 
@@ -293,6 +295,7 @@ fn make_orbiting_body(id: u32, radius_orbit: f64, phase_deg: f64, mass: f64, rad
         vy: v * theta.cos(),
         mass,
         radius,
+        render_radius: radius,
         fixed: false,
     }
 }
@@ -304,11 +307,10 @@ fn make_orbiting_body(id: u32, radius_orbit: f64, phase_deg: f64, mass: f64, rad
 /// `moon_relative_phase_deg` は地球を基準とした月の方位角（度）。
 fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
     let earth_orbit_r = 160.0;
-    // 地球質量 20 でヒル球半径 ≈ 8.18。月を separation=8 に置くと
-    // ヒル球内（< 8.18）かつ衝突半径外（> 4.8+1.6=6.4）で安定軌道が成立する。
-    let moon_sep = 8.0;
-    let earth_mass = 20.0; // N体積分での実際の質量と合わせる
-    let sun_mass = 50000.0;
+    // 地球ヒル半径(約1.6)の内側へ置いて、太陽潮汐による離脱を抑える。
+    let moon_sep = 1.2;
+    let earth_mass = 1.0;
+    let sun_mass = 333_000.0;
 
     let theta_e = deg_to_rad(earth_phase_deg);
     let v_earth = circular_velocity(earth_orbit_r, sun_mass);
@@ -329,8 +331,9 @@ fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
         y: earth_y + moon_sep * theta_m.sin(),
         vx: earth_vel_x - v_moon_rel * theta_m.sin(), // 地球速度 + 周回接線速度
         vy: earth_vel_y + v_moon_rel * theta_m.cos(),
-        mass: 0.07,
-        radius: 1.6,
+        mass: 0.0123,
+        radius: 0.15,
+        render_radius: 1.6,
         fixed: false,
     }
 }
@@ -339,6 +342,8 @@ fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
 /// `phases_deg[0..3]` は水星・金星・地球・火星の位相、`phases_deg[4]` は地球基準の月の位相。
 fn create_solar_preset(phases_deg: [f64; 5]) -> Vec<Body> {
     let earth_phase = phases_deg[2];
+    let mut earth = make_orbiting_body(BODY_EARTH, 160.0, earth_phase, 1.0, 0.6);
+    earth.render_radius = 4.8;
 
     vec![
         Body {
@@ -347,33 +352,31 @@ fn create_solar_preset(phases_deg: [f64; 5]) -> Vec<Body> {
             y: 0.0,
             vx: 0.0,
             vy: 0.0,
-            mass: 50000.0,
+            mass: 333_000.0,
             radius: 14.0,
+            render_radius: 14.0,
             fixed: true,
         },
-        make_orbiting_body(BODY_MERCURY, 70.0, phases_deg[0], 0.33, 3.0),
-        make_orbiting_body(BODY_VENUS, 110.0, phases_deg[1], 4.87, 4.4),
-        make_orbiting_body(BODY_EARTH, 160.0, earth_phase, 20.0, 4.8),
+        make_orbiting_body(BODY_MERCURY, 70.0, phases_deg[0], 0.0553, 3.0),
+        make_orbiting_body(BODY_VENUS, 110.0, phases_deg[1], 0.815, 4.4),
+        earth,
         make_moon_body(earth_phase, phases_deg[4]), // 地球周回軌道で初期化
-        make_orbiting_body(BODY_MARS, 220.0, phases_deg[3], 0.64, 3.6),
-        make_orbiting_body(BODY_JUPITER, 320.0, 0.0, 18.99, 7.5),
+        make_orbiting_body(BODY_MARS, 220.0, phases_deg[3], 0.107, 3.6),
     ]
 }
 
-/// 全天体に対して N 体重力積分（オイラー法）と剛体衝突解決を行う。
-/// 各天体ペアについて互いの重力加速度を計算し、速度・位置を更新する。
-fn integrate_bodies(bodies: &mut [Body], dt: f64, gravity_scale: &[f64; 8]) {
+fn compute_body_accelerations(bodies: &[Body], gravity_scale: &[f64; 8]) -> (Vec<f64>, Vec<f64>) {
     let mut ax = vec![0.0; bodies.len()];
     let mut ay = vec![0.0; bodies.len()];
 
-    // ペア (i, j) の重力加速度を双方向に蓄積する（N² / 2 計算）
+    // ペア (i, j) ごとに一度だけ計算し、作用反作用で両天体へ反映する。
     for i in 0..bodies.len() {
         for j in (i + 1)..bodies.len() {
             let a = &bodies[i];
             let b = &bodies[j];
             let dx = b.x - a.x;
             let dy = b.y - a.y;
-            let d2 = dx * dx + dy * dy + SOFTENING_SQ;
+            let d2 = dx * dx + dy * dy + GRAVITY_SOFTENING_SQ;
             let d = d2.sqrt();
             let inv_d = 1.0 / d;
 
@@ -394,14 +397,31 @@ fn integrate_bodies(bodies: &mut [Body], dt: f64, gravity_scale: &[f64; 8]) {
         }
     }
 
+    (ax, ay)
+}
+
+/// 全天体に対して N 体重力積分（Velocity Verlet法）と剛体衝突解決を行う。
+/// 各天体ペアについて互いの重力加速度を計算し、速度・位置を更新する。
+fn integrate_bodies(bodies: &mut [Body], dt: f64, gravity_scale: &[f64; 8]) {
+    // Velocity Verlet: a(t)で位置更新 -> 新位置でa(t+dt)再計算 -> 速度更新。
+    let (ax0, ay0) = compute_body_accelerations(bodies, gravity_scale);
+
     for (i, body) in bodies.iter_mut().enumerate() {
         if body.fixed {
             continue;
         }
-        body.vx += ax[i] * dt;
-        body.vy += ay[i] * dt;
-        body.x += body.vx * dt;
-        body.y += body.vy * dt;
+        body.x += body.vx * dt + 0.5 * ax0[i] * dt * dt;
+        body.y += body.vy * dt + 0.5 * ay0[i] * dt * dt;
+    }
+
+    let (ax1, ay1) = compute_body_accelerations(bodies, gravity_scale);
+
+    for (i, body) in bodies.iter_mut().enumerate() {
+        if body.fixed {
+            continue;
+        }
+        body.vx += 0.5 * (ax0[i] + ax1[i]) * dt;
+        body.vy += 0.5 * (ay0[i] + ay1[i]) * dt;
     }
 
     resolve_body_collisions(bodies);
@@ -468,30 +488,45 @@ fn resolve_body_collisions(bodies: &mut [Body]) {
 
 /// 飛行中のロケットに全天体からの重力を積分して位置・速度を更新する。
 /// ロケット同士の相互作用と推力は考慮しない。
+fn gravity_accel_components_at_point(
+    x: f64,
+    y: f64,
+    bodies: &[Body],
+    gravity_scale: &[f64; 8],
+) -> (f64, f64) {
+    let mut ax = 0.0;
+    let mut ay = 0.0;
+
+    for body in bodies {
+        let dx = body.x - x;
+        let dy = body.y - y;
+        let d2 = dx * dx + dy * dy + GRAVITY_SOFTENING_SQ;
+        let d = d2.sqrt();
+        let scale = gravity_scale.get(body.id as usize).copied().unwrap_or(1.0);
+        let accel = (G * body.mass * scale) / d2;
+        ax += accel * dx / d;
+        ay += accel * dy / d;
+    }
+
+    (ax, ay)
+}
+
 fn integrate_rockets(rockets: &mut [Rocket], bodies: &[Body], dt: f64, gravity_scale: &[f64; 8]) {
     for rocket in rockets {
         if rocket.status != MISSION_FLYING {
             continue;
         }
 
-        let mut ax = 0.0;
-        let mut ay = 0.0;
+        // ロケットも天体と同じ積分スキームで更新し、予測との乖離を減らす。
+        let (ax0, ay0) =
+            gravity_accel_components_at_point(rocket.x, rocket.y, bodies, gravity_scale);
+        rocket.x += rocket.vx * dt + 0.5 * ax0 * dt * dt;
+        rocket.y += rocket.vy * dt + 0.5 * ay0 * dt * dt;
 
-        for body in bodies {
-            let dx = body.x - rocket.x;
-            let dy = body.y - rocket.y;
-            let d2 = dx * dx + dy * dy + SOFTENING_SQ;
-            let d = d2.sqrt();
-            let scale = gravity_scale.get(body.id as usize).copied().unwrap_or(1.0);
-            let accel = (G * body.mass * scale) / d2;
-            ax += accel * dx / d;
-            ay += accel * dy / d;
-        }
-
-        rocket.vx += ax * dt;
-        rocket.vy += ay * dt;
-        rocket.x += rocket.vx * dt;
-        rocket.y += rocket.vy * dt;
+        let (ax1, ay1) =
+            gravity_accel_components_at_point(rocket.x, rocket.y, bodies, gravity_scale);
+        rocket.vx += 0.5 * (ax0 + ax1) * dt;
+        rocket.vy += 0.5 * (ay0 + ay1) * dt;
     }
 }
 
@@ -515,20 +550,7 @@ fn nearest_body(x: f64, y: f64, bodies: &[Body]) -> Option<(u32, f64)> {
 }
 
 fn gravity_magnitude_at_point(x: f64, y: f64, bodies: &[Body], gravity_scale: &[f64; 8]) -> f64 {
-    let mut ax = 0.0;
-    let mut ay = 0.0;
-
-    for body in bodies {
-        let dx = body.x - x;
-        let dy = body.y - y;
-        let d2 = dx * dx + dy * dy + SOFTENING_SQ;
-        let d = d2.sqrt();
-        let scale = gravity_scale.get(body.id as usize).copied().unwrap_or(1.0);
-        let accel = (G * body.mass * scale) / d2;
-        ax += accel * dx / d;
-        ay += accel * dy / d;
-    }
-
+    let (ax, ay) = gravity_accel_components_at_point(x, y, bodies, gravity_scale);
     ax.hypot(ay)
 }
 
@@ -595,13 +617,13 @@ pub fn get_snapshot_meta() -> js_sys::Uint32Array {
 }
 
 /// 全天体の状態を返す。
-/// 戻り値: `[id, x, y, vx, vy, radius, mass]` × 天体数
+/// 戻り値: `[id, x, y, vx, vy, radius, render_radius, mass]` × 天体数
 #[wasm_bindgen]
 #[must_use]
 pub fn get_snapshot_bodies() -> js_sys::Float64Array {
     SIM.with(|cell| {
         let sim = cell.borrow();
-        let mut out = Vec::with_capacity(sim.bodies.len() * 7);
+        let mut out = Vec::with_capacity(sim.bodies.len() * 8);
         for body in &sim.bodies {
             out.push(f64::from(body.id));
             out.push(body.x);
@@ -609,6 +631,7 @@ pub fn get_snapshot_bodies() -> js_sys::Float64Array {
             out.push(body.vx);
             out.push(body.vy);
             out.push(body.radius);
+            out.push(body.render_radius);
             out.push(body.mass);
         }
         js_sys::Float64Array::from(out.as_slice())
@@ -804,6 +827,7 @@ pub fn predict_orbit(req: Vec<f64>) -> js_sys::Float64Array {
             return js_sys::Float64Array::new_with_length(0);
         };
 
+        // 本体stepと同じSUBSTEPS積分を使い、表示予測と実挙動を合わせる。
         let mut out = Vec::with_capacity((steps as usize) * 2);
         for _ in 0..steps {
             for _ in 0..SUBSTEPS {

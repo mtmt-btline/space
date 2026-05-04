@@ -291,7 +291,7 @@ function drawBodies(
 
   for (const body of bodies) {
     const center = worldToScreen({ x: body.x, y: body.y }, camera, canvas);
-    const radius = Math.max(1.3, body.radius * camera.zoom);
+    const radius = Math.max(1.3, body.renderRadius * camera.zoom);
 
     if (body.glow) {
       const glow = ctx.createRadialGradient(

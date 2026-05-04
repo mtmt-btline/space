@@ -1,9 +1,9 @@
 const PHYSICS = {
   G: 0.06,
-  SOFTENING_SQ: 4.0,
+  SOFTENING_SQ: 0.25,
   RESTITUTION: 0.92,
   FIXED_MASS: 1e9,
-  SUBSTEPS: 4,
+  SUBSTEPS: 8,
   MAX_ROCKETS: 5,
   TRAIL_MAX_LENGTH: 200,
 };
@@ -15,10 +15,9 @@ const BODY_IDS = {
   EARTH: 4,
   MOON: 5,
   MARS: 6,
-  JUPITER: 7,
 } as const;
 
-const ORBIT_GUIDE_RADII = [70, 110, 160, 170, 220, 320];
+const ORBIT_GUIDE_RADII = [70, 110, 160, 170, 220];
 
 const runtimePhysics = window.NBodySim;
 runtimePhysics.PHYSICS = PHYSICS;
@@ -46,6 +45,7 @@ function createSolarPreset(): BodyState[] {
       name: '太陽',
       mass: SUN_MASS,
       radius: 14,
+      renderRadius: 14,
       color: '#f5c531',
       x: 0,
       y: 0,
@@ -60,6 +60,7 @@ function createSolarPreset(): BodyState[] {
       name: '水星',
       mass: 0.33,
       radius: 3.0,
+      renderRadius: 3.0,
       color: '#9aa3ad',
       x: 70,
       y: 0,
@@ -73,6 +74,7 @@ function createSolarPreset(): BodyState[] {
       name: '金星',
       mass: 4.87,
       radius: 4.4,
+      renderRadius: 4.4,
       color: '#e8c270',
       x: 110,
       y: 0,
@@ -86,6 +88,7 @@ function createSolarPreset(): BodyState[] {
       name: '地球',
       mass: 5.97,
       radius: 4.8,
+      renderRadius: 4.8,
       color: '#5aa9f0',
       x: 160,
       y: 0,
@@ -99,6 +102,7 @@ function createSolarPreset(): BodyState[] {
       name: '月',
       mass: 0.07,
       radius: 1.6,
+      renderRadius: 1.6,
       color: '#cfd5db',
       x: 170,
       y: 0,
@@ -112,24 +116,12 @@ function createSolarPreset(): BodyState[] {
       name: '火星',
       mass: 0.64,
       radius: 3.6,
+      renderRadius: 3.6,
       color: '#d96a4a',
       x: 220,
       y: 0,
       vx: 0,
       vy: vCirc(220),
-      kind: 'planet',
-      fixed: false,
-    },
-    {
-      id: BODY_IDS.JUPITER,
-      name: '木星',
-      mass: 18.99,
-      radius: 7.5,
-      color: '#c79a6b',
-      x: 320,
-      y: 0,
-      vx: 0,
-      vy: vCirc(320),
       kind: 'planet',
       fixed: false,
     },
