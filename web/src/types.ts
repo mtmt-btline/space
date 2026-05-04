@@ -24,9 +24,13 @@ declare global {
   type BodyId = number;
   type RocketId = number;
 
-  type BodyKind = "sun" | "planet" | "moon";
-  type RocketStatus = "flying" | "reached_moon" | "fell_into_sun" | "out_of_bounds";
-  type MissionEventType = "reached_moon" | "fell_into_sun" | "out_of_bounds";
+  type BodyKind = 'sun' | 'planet' | 'moon';
+  type RocketStatus =
+    | 'flying'
+    | 'reached_moon'
+    | 'fell_into_sun'
+    | 'out_of_bounds';
+  type MissionEventType = 'reached_moon' | 'fell_into_sun' | 'out_of_bounds';
 
   interface BodyState {
     id: BodyId;
@@ -134,7 +138,7 @@ declare global {
         launchPreview: LaunchDragPreview | null;
         showUfo: boolean;
         nowMs: number;
-      }
+      },
     ): void;
   }
 

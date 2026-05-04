@@ -1,19 +1,13 @@
-import './style.css'
-import './types'
-import './physics'
-import './engine'
-import './renderer'
-import './input'
-import './camera'
-import init, { greet } from '../pkg/engine.js'
+import './style.css';
+import './types';
+import './physics';
+import './engine';
+import './renderer';
+import './input';
+import './camera';
+import init from '../pkg/engine.js';
 
-await init()
-
-const app = document.querySelector<HTMLDivElement>('#app')
-if (!app) {
-  throw new Error('missing #app')
-}
-app.textContent = greet()
+await init();
 
 const runtimeMain = window.NBodySim as {
   PHYSICS: typeof PHYSICS;
@@ -32,43 +26,77 @@ const runtimeMain = window.NBodySim as {
   updateCameraFocus: (camera: CameraState, engine: SimulationEngine) => void;
 };
 
-const canvas = document.getElementById("sim-canvas") as HTMLCanvasElement | null;
+const canvas = document.getElementById(
+  'sim-canvas',
+) as HTMLCanvasElement | null;
 if (!canvas) {
-  throw new Error("Canvas element not found.");
+  throw new Error('Canvas element not found.');
 }
 
-const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
-const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
-const timeScaleSlider = document.getElementById("time-scale") as HTMLInputElement;
-const timeScaleValue = document.getElementById("time-scale-value") as HTMLSpanElement;
+const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
+const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
+const timeScaleSlider = document.getElementById(
+  'time-scale',
+) as HTMLInputElement;
+const timeScaleValue = document.getElementById(
+  'time-scale-value',
+) as HTMLSpanElement;
 
-const angleSlider = document.getElementById("launch-angle") as HTMLInputElement;
-const angleValue = document.getElementById("launch-angle-value") as HTMLSpanElement;
-const speedSlider = document.getElementById("launch-speed") as HTMLInputElement;
-const speedValue = document.getElementById("launch-speed-value") as HTMLSpanElement;
-const launchBtn = document.getElementById("launch-btn") as HTMLButtonElement;
+const angleSlider = document.getElementById('launch-angle') as HTMLInputElement;
+const angleValue = document.getElementById(
+  'launch-angle-value',
+) as HTMLSpanElement;
+const speedSlider = document.getElementById('launch-speed') as HTMLInputElement;
+const speedValue = document.getElementById(
+  'launch-speed-value',
+) as HTMLSpanElement;
+const launchBtn = document.getElementById('launch-btn') as HTMLButtonElement;
 
-const showOrbitToggle = document.getElementById("toggle-orbits") as HTMLInputElement;
-const showPredictionToggle = document.getElementById("toggle-prediction") as HTMLInputElement;
-const showUfoToggle = document.getElementById("toggle-ufo") as HTMLInputElement;
+const showOrbitToggle = document.getElementById(
+  'toggle-orbits',
+) as HTMLInputElement;
+const showPredictionToggle = document.getElementById(
+  'toggle-prediction',
+) as HTMLInputElement;
+const showUfoToggle = document.getElementById('toggle-ufo') as HTMLInputElement;
 
-const gravitySun = document.getElementById("gravity-sun") as HTMLInputElement;
-const gravityEarth = document.getElementById("gravity-earth") as HTMLInputElement;
-const gravityMoon = document.getElementById("gravity-moon") as HTMLInputElement;
-const gravitySunValue = document.getElementById("gravity-sun-value") as HTMLSpanElement;
-const gravityEarthValue = document.getElementById("gravity-earth-value") as HTMLSpanElement;
-const gravityMoonValue = document.getElementById("gravity-moon-value") as HTMLSpanElement;
+const gravitySun = document.getElementById('gravity-sun') as HTMLInputElement;
+const gravityEarth = document.getElementById(
+  'gravity-earth',
+) as HTMLInputElement;
+const gravityMoon = document.getElementById('gravity-moon') as HTMLInputElement;
+const gravitySunValue = document.getElementById(
+  'gravity-sun-value',
+) as HTMLSpanElement;
+const gravityEarthValue = document.getElementById(
+  'gravity-earth-value',
+) as HTMLSpanElement;
+const gravityMoonValue = document.getElementById(
+  'gravity-moon-value',
+) as HTMLSpanElement;
 
-const telemetryPanel = document.getElementById("telemetry-panel") as HTMLDivElement;
-const telemetrySpeed = document.getElementById("telemetry-speed") as HTMLSpanElement;
-const telemetryAltitude = document.getElementById("telemetry-altitude") as HTMLSpanElement;
-const telemetryGravity = document.getElementById("telemetry-gravity") as HTMLSpanElement;
-const telemetryNearest = document.getElementById("telemetry-nearest") as HTMLSpanElement;
-const telemetryRocketLabel = document.getElementById("telemetry-rocket-id") as HTMLSpanElement;
+const telemetryPanel = document.getElementById(
+  'telemetry-panel',
+) as HTMLDivElement;
+const telemetrySpeed = document.getElementById(
+  'telemetry-speed',
+) as HTMLSpanElement;
+const telemetryAltitude = document.getElementById(
+  'telemetry-altitude',
+) as HTMLSpanElement;
+const telemetryGravity = document.getElementById(
+  'telemetry-gravity',
+) as HTMLSpanElement;
+const telemetryNearest = document.getElementById(
+  'telemetry-nearest',
+) as HTMLSpanElement;
+const telemetryRocketLabel = document.getElementById(
+  'telemetry-rocket-id',
+) as HTMLSpanElement;
 
-const rocketList = document.getElementById("rocket-list") as HTMLDivElement;
-const focusLabel = document.getElementById("focus-label") as HTMLSpanElement;
-const missionToast = document.getElementById("mission-toast") as HTMLDivElement;
+const rocketList = document.getElementById('rocket-list') as HTMLDivElement;
+const focusLabel = document.getElementById('focus-label') as HTMLSpanElement;
+const missionToast = document.getElementById('mission-toast') as HTMLDivElement;
 
 const engine = runtimeMain.createSimulationEngine();
 const camera = runtimeMain.createCameraState();
@@ -98,7 +126,7 @@ function updateTrails(rockets: RocketState[]): void {
     if (trail.length > runtimeMain.PHYSICS.TRAIL_MAX_LENGTH) trail.shift();
   }
   for (const id of trails.keys()) {
-    if (!rockets.find((r) => r.id === id)) trails.delete(id);
+    if (!rockets.find(r => r.id === id)) trails.delete(id);
   }
 }
 
@@ -115,12 +143,12 @@ function setFocusedBody(bodyId: BodyId | null): void {
   engine.focusBody(bodyId);
 
   if (bodyId === null) {
-    focusLabel.textContent = "追従なし";
+    focusLabel.textContent = '追従なし';
     return;
   }
 
-  const body = engine.getSnapshot().bodies.find((item) => item.id === bodyId);
-  focusLabel.textContent = body ? `${body.name} 追従中` : "追従なし";
+  const body = engine.getSnapshot().bodies.find(item => item.id === bodyId);
+  focusLabel.textContent = body ? `${body.name} 追従中` : '追従なし';
 }
 
 function showMissionMessage(event: MissionEvent): void {
@@ -131,26 +159,28 @@ function showMissionMessage(event: MissionEvent): void {
   };
 
   const toneByType: Record<MissionEventType, string> = {
-    reached_moon: "success",
-    fell_into_sun: "danger",
-    out_of_bounds: "danger",
+    reached_moon: 'success',
+    fell_into_sun: 'danger',
+    out_of_bounds: 'danger',
   };
 
   missionToast.textContent = textByType[event.type];
-  missionToast.classList.remove("success", "danger");
-  missionToast.classList.add("show", toneByType[event.type]);
+  missionToast.classList.remove('success', 'danger');
+  missionToast.classList.add('show', toneByType[event.type]);
 
   if (missionToastTimer !== 0) {
     window.clearTimeout(missionToastTimer);
   }
   missionToastTimer = window.setTimeout(() => {
-    missionToast.classList.remove("show");
+    missionToast.classList.remove('show');
   }, 2200);
 }
 
 function launchFromPanel(): void {
   const snapshot = engine.getSnapshot();
-  const earth = snapshot.bodies.find((body) => body.id === runtimeMain.BODY_IDS.EARTH) ?? null;
+  const earth =
+    snapshot.bodies.find(body => body.id === runtimeMain.BODY_IDS.EARTH) ??
+    null;
   if (!earth) {
     return;
   }
@@ -177,48 +207,51 @@ function syncGravityUI(): void {
 
 function applyGravityFromUI(): void {
   engine.setGravityScale(runtimeMain.BODY_IDS.SUN, Number(gravitySun.value));
-  engine.setGravityScale(runtimeMain.BODY_IDS.EARTH, Number(gravityEarth.value));
+  engine.setGravityScale(
+    runtimeMain.BODY_IDS.EARTH,
+    Number(gravityEarth.value),
+  );
   engine.setGravityScale(runtimeMain.BODY_IDS.MOON, Number(gravityMoon.value));
   syncGravityUI();
 }
 
 function updateRocketList(snapshot: SimulationSnapshot): void {
-  rocketList.innerHTML = "";
+  rocketList.innerHTML = '';
 
   if (snapshot.rockets.length === 0) {
-    const empty = document.createElement("span");
-    empty.className = "muted";
-    empty.textContent = "ロケットなし";
+    const empty = document.createElement('span');
+    empty.className = 'muted';
+    empty.textContent = 'ロケットなし';
     rocketList.appendChild(empty);
     return;
   }
 
   for (const rocket of snapshot.rockets) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "rocket-chip";
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'rocket-chip';
     if (selectedRocketId === rocket.id) {
-      chip.classList.add("active");
+      chip.classList.add('active');
     }
     chip.textContent = `#${rocket.id}`;
-    chip.addEventListener("click", () => {
+    chip.addEventListener('click', () => {
       selectedRocketId = rocket.id;
     });
 
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "rocket-delete";
-    del.textContent = "×";
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'rocket-delete';
+    del.textContent = '×';
     del.title = `ロケット #${rocket.id} を削除`;
-    del.addEventListener("click", () => {
+    del.addEventListener('click', () => {
       engine.deleteRocket(rocket.id);
       if (selectedRocketId === rocket.id) {
         selectedRocketId = null;
       }
     });
 
-    const wrap = document.createElement("div");
-    wrap.className = "rocket-entry";
+    const wrap = document.createElement('div');
+    wrap.className = 'rocket-entry';
     wrap.appendChild(chip);
     wrap.appendChild(del);
     rocketList.appendChild(wrap);
@@ -227,24 +260,26 @@ function updateRocketList(snapshot: SimulationSnapshot): void {
 
 function updateTelemetry(snapshot: SimulationSnapshot): void {
   if (selectedRocketId === null) {
-    telemetryPanel.classList.add("hidden");
+    telemetryPanel.classList.add('hidden');
     return;
   }
 
-  const exists = snapshot.rockets.some((rocket) => rocket.id === selectedRocketId);
+  const exists = snapshot.rockets.some(
+    rocket => rocket.id === selectedRocketId,
+  );
   if (!exists) {
     selectedRocketId = null;
-    telemetryPanel.classList.add("hidden");
+    telemetryPanel.classList.add('hidden');
     return;
   }
 
   const telemetry = engine.getTelemetry(selectedRocketId);
   if (!telemetry) {
-    telemetryPanel.classList.add("hidden");
+    telemetryPanel.classList.add('hidden');
     return;
   }
 
-  telemetryPanel.classList.remove("hidden");
+  telemetryPanel.classList.remove('hidden');
   telemetryRocketLabel.textContent = `#${selectedRocketId}`;
   telemetrySpeed.textContent = `${telemetry.speed.toFixed(3)}`;
   telemetryAltitude.textContent = `${telemetry.altitudeFromEarth.toFixed(2)}`;
@@ -252,7 +287,9 @@ function updateTelemetry(snapshot: SimulationSnapshot): void {
   telemetryNearest.textContent = `${telemetry.nearestBody.name} (${telemetry.nearestBody.distance.toFixed(2)})`;
 }
 
-function computePredictedOrbit(launchPreview: LaunchDragPreview | null): OrbitPoint[] {
+function computePredictedOrbit(
+  launchPreview: LaunchDragPreview | null,
+): OrbitPoint[] {
   if (!showPrediction) {
     return [];
   }
@@ -288,57 +325,57 @@ const inputBinding = runtimeMain.bindInput({
   },
 });
 
-pauseBtn.addEventListener("click", () => {
+pauseBtn.addEventListener('click', () => {
   paused = !paused;
-  pauseBtn.textContent = paused ? "再生" : "一時停止";
+  pauseBtn.textContent = paused ? '再生' : '一時停止';
 });
 
-resetBtn.addEventListener("click", () => {
+resetBtn.addEventListener('click', () => {
   engine.reset();
   trails.clear();
   selectedRocketId = null;
   setFocusedBody(null);
-  gravitySun.value = "1";
-  gravityEarth.value = "1";
-  gravityMoon.value = "1";
+  gravitySun.value = '1';
+  gravityEarth.value = '1';
+  gravityMoon.value = '1';
   applyGravityFromUI();
 });
 
-timeScaleSlider.addEventListener("input", () => {
+timeScaleSlider.addEventListener('input', () => {
   timeScale = Number(timeScaleSlider.value);
   timeScaleValue.textContent = formatMultiplier(timeScale);
 });
 
-angleSlider.addEventListener("input", () => {
+angleSlider.addEventListener('input', () => {
   launchAngle = Number(angleSlider.value);
   angleValue.textContent = `${launchAngle.toFixed(0)}°`;
 });
 
-speedSlider.addEventListener("input", () => {
+speedSlider.addEventListener('input', () => {
   launchSpeed = Number(speedSlider.value);
   speedValue.textContent = formatSpeed(launchSpeed);
 });
 
-launchBtn.addEventListener("click", launchFromPanel);
+launchBtn.addEventListener('click', launchFromPanel);
 
-showOrbitToggle.addEventListener("change", () => {
+showOrbitToggle.addEventListener('change', () => {
   showOrbitGuides = showOrbitToggle.checked;
 });
 
-showPredictionToggle.addEventListener("change", () => {
+showPredictionToggle.addEventListener('change', () => {
   showPrediction = showPredictionToggle.checked;
 });
 
-showUfoToggle.addEventListener("change", () => {
+showUfoToggle.addEventListener('change', () => {
   showUfo = showUfoToggle.checked;
 });
 
-gravitySun.addEventListener("input", applyGravityFromUI);
-gravityEarth.addEventListener("input", applyGravityFromUI);
-gravityMoon.addEventListener("input", applyGravityFromUI);
+gravitySun.addEventListener('input', applyGravityFromUI);
+gravityEarth.addEventListener('input', applyGravityFromUI);
+gravityMoon.addEventListener('input', applyGravityFromUI);
 
-window.addEventListener("keydown", (event: KeyboardEvent) => {
-  if (event.key === "Escape") {
+window.addEventListener('keydown', (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
     setFocusedBody(null);
   }
 });
@@ -363,7 +400,7 @@ function render(snapshot: SimulationSnapshot, cameraState: CameraState): void {
   updateTelemetry(snapshot);
 
   if (focusedBodyId === null) {
-    focusLabel.textContent = "追従なし";
+    focusLabel.textContent = '追従なし';
   }
 }
 
@@ -398,9 +435,9 @@ function initializeUI(): void {
   showPredictionToggle.checked = showPrediction;
   showUfoToggle.checked = showUfo;
 
-  gravitySun.value = "1";
-  gravityEarth.value = "1";
-  gravityMoon.value = "1";
+  gravitySun.value = '1';
+  gravityEarth.value = '1';
+  gravityMoon.value = '1';
   applyGravityFromUI();
   setFocusedBody(null);
 }
@@ -408,6 +445,6 @@ function initializeUI(): void {
 initializeUI();
 requestAnimationFrame(gameLoop);
 
-window.addEventListener("beforeunload", () => {
+window.addEventListener('beforeunload', () => {
   inputBinding.destroy();
 });

@@ -1,7 +1,7 @@
 function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (!ctx) {
-    throw new Error("Canvas 2D context is not available.");
+    throw new Error('Canvas 2D context is not available.');
   }
   const context: CanvasRenderingContext2D = ctx;
 
@@ -29,10 +29,14 @@ function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
       launchPreview: LaunchDragPreview | null;
       showUfo: boolean;
       nowMs: number;
-    }
+    },
   ): void {
     const runtime = window.NBodySim as {
-      worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint;
+      worldToScreen: (
+        world: OrbitPoint,
+        cameraState: CameraState,
+        cnv: HTMLCanvasElement,
+      ) => OrbitPoint;
       ORBIT_GUIDE_RADII: number[];
     };
 
@@ -49,12 +53,25 @@ function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
         camera,
         canvas,
         runtime.ORBIT_GUIDE_RADII,
-        runtime.worldToScreen
+        runtime.worldToScreen,
       );
     }
 
-    drawTrails(context, options.trails, snapshot.rockets, camera, canvas, runtime.worldToScreen);
-    drawPredictedOrbit(context, options.predictedOrbit, camera, canvas, runtime.worldToScreen);
+    drawTrails(
+      context,
+      options.trails,
+      snapshot.rockets,
+      camera,
+      canvas,
+      runtime.worldToScreen,
+    );
+    drawPredictedOrbit(
+      context,
+      options.predictedOrbit,
+      camera,
+      canvas,
+      runtime.worldToScreen,
+    );
     drawBodies(context, snapshot.bodies, camera, canvas, runtime.worldToScreen);
     drawRockets(
       context,
@@ -62,11 +79,17 @@ function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
       camera,
       canvas,
       runtime.worldToScreen,
-      options.selectedRocketId
+      options.selectedRocketId,
     );
 
     if (options.launchPreview && options.launchPreview.active) {
-      drawLaunchPreview(context, options.launchPreview, camera, canvas, runtime.worldToScreen);
+      drawLaunchPreview(
+        context,
+        options.launchPreview,
+        camera,
+        canvas,
+        runtime.worldToScreen,
+      );
     }
 
     if (options.showUfo) {
@@ -80,7 +103,7 @@ function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
 function drawBackground(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number
+  height: number,
 ): void {
   ctx.clearRect(0, 0, width, height);
   const gradient = ctx.createRadialGradient(
@@ -89,16 +112,19 @@ function drawBackground(
     40,
     width * 0.5,
     height * 0.5,
-    Math.max(width, height) * 0.9
+    Math.max(width, height) * 0.9,
   );
-  gradient.addColorStop(0, "#121b37");
-  gradient.addColorStop(1, "#070c1a");
+  gradient.addColorStop(0, '#121b37');
+  gradient.addColorStop(1, '#070c1a');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 }
 
-function buildStarField(count: number): Array<{ x: number; y: number; radius: number; alpha: number }> {
-  const stars: Array<{ x: number; y: number; radius: number; alpha: number }> = [];
+function buildStarField(
+  count: number,
+): Array<{ x: number; y: number; radius: number; alpha: number }> {
+  const stars: Array<{ x: number; y: number; radius: number; alpha: number }> =
+    [];
   for (let i = 0; i < count; i += 1) {
     stars.push({
       x: Math.random(),
@@ -115,7 +141,7 @@ function drawStars(
   width: number,
   height: number,
   stars: Array<{ x: number; y: number; radius: number; alpha: number }>,
-  camera: CameraState
+  camera: CameraState,
 ): void {
   const parallaxX = camera.x * 0.03;
   const parallaxY = camera.y * 0.03;
@@ -142,9 +168,13 @@ function drawOrbitGuides(
   camera: CameraState,
   canvas: HTMLCanvasElement,
   radii: number[],
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
 ): void {
-  const sun = snapshot.bodies.find((body) => body.kind === "sun") ?? null;
+  const sun = snapshot.bodies.find(body => body.kind === 'sun') ?? null;
   if (!sun) {
     return;
   }
@@ -152,7 +182,7 @@ function drawOrbitGuides(
   const sunScreen = worldToScreen({ x: sun.x, y: sun.y }, camera, canvas);
 
   ctx.save();
-  ctx.strokeStyle = "rgba(200,220,255,0.18)";
+  ctx.strokeStyle = 'rgba(200,220,255,0.18)';
   ctx.lineWidth = 1;
   ctx.setLineDash([5, 7]);
 
@@ -171,7 +201,11 @@ function drawTrails(
   rockets: RocketState[],
   camera: CameraState,
   canvas: HTMLCanvasElement,
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
 ): void {
   const rocketColor = new Map<RocketId, string>();
   for (const rocket of rockets) {
@@ -183,13 +217,13 @@ function drawTrails(
       continue;
     }
 
-    const color = rocketColor.get(id) ?? "#98b7ff";
+    const color = rocketColor.get(id) ?? '#98b7ff';
     ctx.save();
     ctx.strokeStyle = color;
     ctx.globalAlpha = 0.52;
     ctx.lineWidth = 1.5;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.beginPath();
 
     for (let i = 0; i < trail.length; i += 1) {
@@ -211,14 +245,18 @@ function drawPredictedOrbit(
   points: OrbitPoint[],
   camera: CameraState,
   canvas: HTMLCanvasElement,
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
 ): void {
   if (points.length < 2) {
     return;
   }
 
   ctx.save();
-  ctx.strokeStyle = "rgba(146, 206, 255, 0.78)";
+  ctx.strokeStyle = 'rgba(146, 206, 255, 0.78)';
   ctx.lineWidth = 1.3;
   ctx.setLineDash([4, 6]);
   ctx.beginPath();
@@ -241,20 +279,31 @@ function drawBodies(
   bodies: BodyState[],
   camera: CameraState,
   canvas: HTMLCanvasElement,
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
 ): void {
   ctx.save();
-  ctx.font = "12px system-ui";
-  ctx.textBaseline = "middle";
+  ctx.font = '12px system-ui';
+  ctx.textBaseline = 'middle';
 
   for (const body of bodies) {
     const center = worldToScreen({ x: body.x, y: body.y }, camera, canvas);
     const radius = Math.max(1.3, body.radius * camera.zoom);
 
     if (body.glow) {
-      const glow = ctx.createRadialGradient(center.x, center.y, radius * 0.6, center.x, center.y, radius * 3.6);
-      glow.addColorStop(0, "rgba(245,197,49,0.45)");
-      glow.addColorStop(1, "rgba(245,197,49,0.0)");
+      const glow = ctx.createRadialGradient(
+        center.x,
+        center.y,
+        radius * 0.6,
+        center.x,
+        center.y,
+        radius * 3.6,
+      );
+      glow.addColorStop(0, 'rgba(245,197,49,0.45)');
+      glow.addColorStop(1, 'rgba(245,197,49,0.0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(center.x, center.y, radius * 3.6, 0, Math.PI * 2);
@@ -267,7 +316,7 @@ function drawBodies(
     ctx.fill();
 
     if (radius > 2.8 || body.glow) {
-      ctx.fillStyle = "rgba(244,246,251,0.9)";
+      ctx.fillStyle = 'rgba(244,246,251,0.9)';
       ctx.fillText(body.name, center.x + radius + 7, center.y);
     }
   }
@@ -280,8 +329,12 @@ function drawRockets(
   rockets: RocketState[],
   camera: CameraState,
   canvas: HTMLCanvasElement,
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint,
-  selectedRocketId: RocketId | null
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
+  selectedRocketId: RocketId | null,
 ): void {
   for (const rocket of rockets) {
     const p = worldToScreen({ x: rocket.x, y: rocket.y }, camera, canvas);
@@ -302,7 +355,7 @@ function drawRockets(
 
     if (selectedRocketId === rocket.id) {
       ctx.save();
-      ctx.strokeStyle = "rgba(145, 198, 255, 0.95)";
+      ctx.strokeStyle = 'rgba(145, 198, 255, 0.95)';
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
@@ -317,13 +370,17 @@ function drawLaunchPreview(
   preview: LaunchDragPreview,
   camera: CameraState,
   canvas: HTMLCanvasElement,
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
 ): void {
   const start = worldToScreen(preview.start, camera, canvas);
   const current = worldToScreen(preview.current, camera, canvas);
 
   ctx.save();
-  ctx.strokeStyle = "rgba(170, 210, 255, 0.9)";
+  ctx.strokeStyle = 'rgba(170, 210, 255, 0.9)';
   ctx.lineWidth = 1.4;
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
@@ -331,9 +388,13 @@ function drawLaunchPreview(
   ctx.lineTo(current.x, current.y);
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(170, 210, 255, 0.92)";
-  ctx.font = "12px system-ui";
-  ctx.fillText(`speed ${preview.speed.toFixed(2)}`, current.x + 9, current.y - 7);
+  ctx.fillStyle = 'rgba(170, 210, 255, 0.92)';
+  ctx.font = '12px system-ui';
+  ctx.fillText(
+    `speed ${preview.speed.toFixed(2)}`,
+    current.x + 9,
+    current.y - 7,
+  );
   ctx.restore();
 }
 
@@ -342,7 +403,11 @@ function drawUfo(
   nowMs: number,
   camera: CameraState,
   canvas: HTMLCanvasElement,
-  worldToScreen: (world: OrbitPoint, cameraState: CameraState, cnv: HTMLCanvasElement) => OrbitPoint
+  worldToScreen: (
+    world: OrbitPoint,
+    cameraState: CameraState,
+    cnv: HTMLCanvasElement,
+  ) => OrbitPoint,
 ): void {
   const t = nowMs * 0.00023;
   const ufoWorld: OrbitPoint = {
@@ -354,12 +419,12 @@ function drawUfo(
   ctx.save();
   ctx.translate(p.x, p.y);
 
-  ctx.fillStyle = "rgba(170, 235, 244, 0.7)";
+  ctx.fillStyle = 'rgba(170, 235, 244, 0.7)';
   ctx.beginPath();
   ctx.ellipse(0, 0, 14, 5.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "rgba(210, 250, 255, 0.95)";
+  ctx.fillStyle = 'rgba(210, 250, 255, 0.95)';
   ctx.beginPath();
   ctx.ellipse(0, -4.5, 6.5, 3.4, 0, Math.PI, 0);
   ctx.fill();
@@ -367,5 +432,8 @@ function drawUfo(
   ctx.restore();
 }
 
-(window.NBodySim as { createRenderer?: (canvas: HTMLCanvasElement) => RendererHandle }).createRenderer =
-  createRenderer;
+(
+  window.NBodySim as {
+    createRenderer?: (canvas: HTMLCanvasElement) => RendererHandle;
+  }
+).createRenderer = createRenderer;

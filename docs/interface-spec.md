@@ -49,6 +49,7 @@ UI（web）と物理計算（engine）を疎結合にし、並行開発を可能
 - get_snapshot_rockets() -> Float64Array
 - get_events() -> Uint32Array
 - launch_rocket(req: Float64Array) -> Uint32Array
+- delete_rocket(req: Uint32Array) -> i32
 - get_rocket_telemetry(req: Uint32Array) -> Float64Array
 - predict_orbit(req: Float64Array) -> Float64Array
 - reset_sim() -> i32
@@ -377,6 +378,33 @@ new Float64Array([
 new Float64Array([1, 2.0])
 ```
 
+### 7.12 delete_rocket
+
+**概要**: 指定したロケットをシミュレーション状態から削除する。UI で不要になったロケットを明示的に除去する用途で使用する。
+
+- 入力: Uint32Array length=1
+
+| index | 説明 | 例 |
+|---|---|---|
+| [0] | 削除対象ロケット識別子 | 7 |
+
+- 出力: i32 status
+- 返却契約:
+  - 対象ロケットが存在し、削除できた場合は `0 (OK)` を返す。
+  - 対象ロケットが存在しない場合は `2 (NOT_FOUND)` を返す。
+
+入力サンプル:
+
+```ts
+new Uint32Array([7])
+```
+
+出力サンプル:
+
+```ts
+0
+```
+
 ## 8. 列挙値定義
 
 **注記**: 以下の定義は仕様の参考値です。web 側では TypeScript で定数オブジェクトを定義して参照・比較することを推奨します。
@@ -469,6 +497,9 @@ graph TD
     Decision -->|"発射要求"| Launch["2️⃣ launch_rocket"]
     Launch --> Step
 
+    Decision -->|"削除要求"| DeleteRocket["2️⃣ delete_rocket"]
+    DeleteRocket --> Step
+
     Decision -->|"通常"| Step["3️⃣ step<br/>(進める秒数を渡す)"]
     Step --> GetMeta["4️⃣ get_snapshot_meta<br/>(件数取得)"]
     GetMeta --> GetBodies["5️⃣ get_snapshot_bodies"]
@@ -502,6 +533,7 @@ graph TD
 | 毎フレーム | `get_events` | 常に | 新規イベント確認、ポップアップ表示 |
 | 毎フレーム | `get_rocket_telemetry` | rocket 選択時 | 詳細情報パネル更新 |
 | ユーザー操作 | `launch_rocket` | 発射時 | 発射要求を登録し、次の `step` で反映 |
+| ユーザー操作 | `delete_rocket` | 削除時 | 指定ロケットを状態から除去 |
 | プレビュー中 | `predict_orbit` | 発射前のみ | 軌道予測表示用 |
 | ユーザー操作 | `reset_sim` | リセット時 | 初期状態へ戻す |
 

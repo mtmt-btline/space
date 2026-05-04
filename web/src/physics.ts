@@ -25,7 +25,10 @@ runtimePhysics.PHYSICS = PHYSICS;
 runtimePhysics.BODY_IDS = BODY_IDS;
 runtimePhysics.ORBIT_GUIDE_RADII = ORBIT_GUIDE_RADII;
 
-function getGravityScale(gravityScaleMap: Map<BodyId, number>, bodyId: BodyId): number {
+function getGravityScale(
+  gravityScaleMap: Map<BodyId, number>,
+  bodyId: BodyId,
+): number {
   return gravityScaleMap.get(bodyId) ?? 1;
 }
 
@@ -35,99 +38,99 @@ function degToRad(deg: number): number {
 
 function createSolarPreset(): BodyState[] {
   const SUN_MASS = 50000;
-  const vCirc = (r: number) => Math.sqrt(PHYSICS.G * SUN_MASS / r);
+  const vCirc = (r: number) => Math.sqrt((PHYSICS.G * SUN_MASS) / r);
 
   return [
     {
       id: BODY_IDS.SUN,
-      name: "太陽",
+      name: '太陽',
       mass: SUN_MASS,
       radius: 14,
-      color: "#f5c531",
+      color: '#f5c531',
       x: 0,
       y: 0,
       vx: 0,
       vy: 0,
-      kind: "sun",
+      kind: 'sun',
       fixed: true,
       glow: true,
     },
     {
       id: BODY_IDS.MERCURY,
-      name: "水星",
+      name: '水星',
       mass: 0.33,
       radius: 3.0,
-      color: "#9aa3ad",
+      color: '#9aa3ad',
       x: 70,
       y: 0,
       vx: 0,
       vy: vCirc(70),
-      kind: "planet",
+      kind: 'planet',
       fixed: false,
     },
     {
       id: BODY_IDS.VENUS,
-      name: "金星",
+      name: '金星',
       mass: 4.87,
       radius: 4.4,
-      color: "#e8c270",
+      color: '#e8c270',
       x: 110,
       y: 0,
       vx: 0,
       vy: vCirc(110),
-      kind: "planet",
+      kind: 'planet',
       fixed: false,
     },
     {
       id: BODY_IDS.EARTH,
-      name: "地球",
+      name: '地球',
       mass: 5.97,
       radius: 4.8,
-      color: "#5aa9f0",
+      color: '#5aa9f0',
       x: 160,
       y: 0,
       vx: 0,
       vy: vCirc(160),
-      kind: "planet",
+      kind: 'planet',
       fixed: false,
     },
     {
       id: BODY_IDS.MOON,
-      name: "月",
+      name: '月',
       mass: 0.07,
       radius: 1.6,
-      color: "#cfd5db",
+      color: '#cfd5db',
       x: 170,
       y: 0,
       vx: 0,
       vy: vCirc(170),
-      kind: "moon",
+      kind: 'moon',
       fixed: false,
     },
     {
       id: BODY_IDS.MARS,
-      name: "火星",
+      name: '火星',
       mass: 0.64,
       radius: 3.6,
-      color: "#d96a4a",
+      color: '#d96a4a',
       x: 220,
       y: 0,
       vx: 0,
       vy: vCirc(220),
-      kind: "planet",
+      kind: 'planet',
       fixed: false,
     },
     {
       id: BODY_IDS.JUPITER,
-      name: "木星",
+      name: '木星',
       mass: 18.99,
       radius: 7.5,
-      color: "#c79a6b",
+      color: '#c79a6b',
       x: 320,
       y: 0,
       vx: 0,
       vy: vCirc(320),
-      kind: "planet",
+      kind: 'planet',
       fixed: false,
     },
   ];
@@ -137,7 +140,7 @@ function createSolarPreset(): BodyState[] {
 function integrateBodies(
   bodies: BodyState[],
   dt: number,
-  gravityScaleMap: Map<BodyId, number>
+  gravityScaleMap: Map<BodyId, number>,
 ): void {
   const ax = new Array<number>(bodies.length).fill(0);
   const ay = new Array<number>(bodies.length).fill(0);
@@ -245,10 +248,10 @@ function integrateRockets(
   rockets: RocketState[],
   bodies: BodyState[],
   dt: number,
-  gravityScaleMap: Map<BodyId, number>
+  gravityScaleMap: Map<BodyId, number>,
 ): void {
   for (const rocket of rockets) {
-    if (rocket.status !== "flying") {
+    if (rocket.status !== 'flying') {
       continue;
     }
 
@@ -277,7 +280,7 @@ function calculateGravityMagnitudeAtPoint(
   x: number,
   y: number,
   bodies: BodyState[],
-  gravityScaleMap: Map<BodyId, number>
+  gravityScaleMap: Map<BodyId, number>,
 ): number {
   let ax = 0;
   let ay = 0;
@@ -299,7 +302,7 @@ function calculateGravityMagnitudeAtPoint(
 function findNearestBody(
   x: number,
   y: number,
-  bodies: BodyState[]
+  bodies: BodyState[],
 ): { body: BodyState; distance: number } | null {
   let nearest: BodyState | null = null;
   let minDistance = Number.POSITIVE_INFINITY;
@@ -320,14 +323,14 @@ function findNearestBody(
 }
 
 function cloneBodies(bodies: BodyState[]): BodyState[] {
-  return bodies.map((body) => ({ ...body }));
+  return bodies.map(body => ({ ...body }));
 }
 
 function predictRocketOrbit(
   bodies: BodyState[],
   rocket: RocketState,
   steps: number,
-  gravityScaleMap: Map<BodyId, number>
+  gravityScaleMap: Map<BodyId, number>,
 ): OrbitPoint[] {
   const localBodies = cloneBodies(bodies);
   const probe: RocketState = { ...rocket };
@@ -343,8 +346,11 @@ function predictRocketOrbit(
 
     points.push({ x: probe.x, y: probe.y });
 
-    const sun = localBodies.find((body) => body.kind === "sun") ?? null;
-    if (sun && Math.hypot(probe.x - sun.x, probe.y - sun.y) <= sun.radius + 1.2) {
+    const sun = localBodies.find(body => body.kind === 'sun') ?? null;
+    if (
+      sun &&
+      Math.hypot(probe.x - sun.x, probe.y - sun.y) <= sun.radius + 1.2
+    ) {
       break;
     }
 
@@ -360,7 +366,8 @@ function predictRocketOrbit(
 runtimePhysics.createSolarPreset = createSolarPreset;
 runtimePhysics.integrateBodies = integrateBodies;
 runtimePhysics.integrateRockets = integrateRockets;
-runtimePhysics.calculateGravityMagnitudeAtPoint = calculateGravityMagnitudeAtPoint;
+runtimePhysics.calculateGravityMagnitudeAtPoint =
+  calculateGravityMagnitudeAtPoint;
 runtimePhysics.findNearestBody = findNearestBody;
 runtimePhysics.predictRocketOrbit = predictRocketOrbit;
 runtimePhysics.degToRad = degToRad;

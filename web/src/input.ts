@@ -8,19 +8,27 @@ function bindInput(options: {
 }): InputBinding {
   const runtime = window.NBodySim as {
     BODY_IDS: typeof BODY_IDS;
-    worldToScreen: (world: OrbitPoint, cameraState: CameraState, canvasEl: HTMLCanvasElement) => OrbitPoint;
-    screenToWorld: (screen: OrbitPoint, cameraState: CameraState, canvasEl: HTMLCanvasElement) => OrbitPoint;
+    worldToScreen: (
+      world: OrbitPoint,
+      cameraState: CameraState,
+      canvasEl: HTMLCanvasElement,
+    ) => OrbitPoint;
+    screenToWorld: (
+      screen: OrbitPoint,
+      cameraState: CameraState,
+      canvasEl: HTMLCanvasElement,
+    ) => OrbitPoint;
     panCameraPixels: (cameraState: CameraState, dx: number, dy: number) => void;
     zoomCameraAt: (
       cameraState: CameraState,
       multiplier: number,
       screenPoint: OrbitPoint,
-      canvasEl: HTMLCanvasElement
+      canvasEl: HTMLCanvasElement,
     ) => void;
   };
 
   let activePointerId: number | null = null;
-  let mode: "idle" | "pan" | "launch" = "idle";
+  let mode: 'idle' | 'pan' | 'launch' = 'idle';
   let lastScreen = { x: 0, y: 0 };
   let moved = false;
   let clickedBodyId: BodyId | null = null;
@@ -39,9 +47,18 @@ function bindInput(options: {
     const snapshot = options.engine.getSnapshot();
     for (let i = snapshot.bodies.length - 1; i >= 0; i -= 1) {
       const body = snapshot.bodies[i];
-      const bodyScreen = runtime.worldToScreen({ x: body.x, y: body.y }, options.camera, options.canvas);
+      const bodyScreen = runtime.worldToScreen(
+        { x: body.x, y: body.y },
+        options.camera,
+        options.canvas,
+      );
       const hitRadius = Math.max(10, body.radius * options.camera.zoom + 7);
-      if (Math.hypot(screenPoint.x - bodyScreen.x, screenPoint.y - bodyScreen.y) <= hitRadius) {
+      if (
+        Math.hypot(
+          screenPoint.x - bodyScreen.x,
+          screenPoint.y - bodyScreen.y,
+        ) <= hitRadius
+      ) {
         return body;
       }
     }
@@ -53,7 +70,11 @@ function bindInput(options: {
       return;
     }
 
-    const currentWorld = runtime.screenToWorld(currentScreen, options.camera, options.canvas);
+    const currentWorld = runtime.screenToWorld(
+      currentScreen,
+      options.camera,
+      options.canvas,
+    );
     const dx = currentWorld.x - launchPreview.start.x;
     const dy = currentWorld.y - launchPreview.start.y;
 
@@ -79,12 +100,12 @@ function bindInput(options: {
 
     if (event.button === 2 || event.button === 1) {
       options.onClearFocus();
-      mode = "pan";
+      mode = 'pan';
       return;
     }
 
     if (hitBody && hitBody.id === runtime.BODY_IDS.EARTH) {
-      mode = "launch";
+      mode = 'launch';
       launchEarthRadius = hitBody.radius;
       launchPreview = {
         active: true,
@@ -96,7 +117,7 @@ function bindInput(options: {
       return;
     }
 
-    mode = "pan";
+    mode = 'pan';
   }
 
   function onPointerMove(event: PointerEvent): void {
@@ -112,7 +133,7 @@ function bindInput(options: {
       moved = true;
     }
 
-    if (mode === "pan") {
+    if (mode === 'pan') {
       if (moved) {
         options.onClearFocus();
       }
@@ -121,7 +142,7 @@ function bindInput(options: {
       return;
     }
 
-    if (mode === "launch") {
+    if (mode === 'launch') {
       updateLaunchPreview(screenPoint);
       lastScreen = screenPoint;
     }
@@ -132,11 +153,13 @@ function bindInput(options: {
       return;
     }
 
-    if (mode === "launch" && launchPreview) {
+    if (mode === 'launch' && launchPreview) {
       if (launchPreview.speed > 0.08) {
         const rad = (launchPreview.angleDeg * Math.PI) / 180;
-        const launchX = launchPreview.start.x + Math.cos(rad) * (launchEarthRadius + 2.5);
-        const launchY = launchPreview.start.y + Math.sin(rad) * (launchEarthRadius + 2.5);
+        const launchX =
+          launchPreview.start.x + Math.cos(rad) * (launchEarthRadius + 2.5);
+        const launchY =
+          launchPreview.start.y + Math.sin(rad) * (launchEarthRadius + 2.5);
 
         options.onDragLaunch({
           x: launchX,
@@ -151,7 +174,7 @@ function bindInput(options: {
       options.onFocusBody(clickedBodyId);
     }
 
-    mode = "idle";
+    mode = 'idle';
     clickedBodyId = null;
     launchPreview = null;
 
@@ -169,28 +192,33 @@ function bindInput(options: {
     options.onClearFocus();
     const screenPoint = getScreenPoint(event);
     const multiplier = Math.exp(-event.deltaY * 0.0012);
-    runtime.zoomCameraAt(options.camera, multiplier, screenPoint, options.canvas);
+    runtime.zoomCameraAt(
+      options.camera,
+      multiplier,
+      screenPoint,
+      options.canvas,
+    );
   }
 
   function onContextMenu(event: MouseEvent): void {
     event.preventDefault();
   }
 
-  options.canvas.addEventListener("pointerdown", onPointerDown);
-  options.canvas.addEventListener("pointermove", onPointerMove);
-  options.canvas.addEventListener("pointerup", finishPointer);
-  options.canvas.addEventListener("pointercancel", finishPointer);
-  options.canvas.addEventListener("wheel", onWheel, { passive: false });
-  options.canvas.addEventListener("contextmenu", onContextMenu);
+  options.canvas.addEventListener('pointerdown', onPointerDown);
+  options.canvas.addEventListener('pointermove', onPointerMove);
+  options.canvas.addEventListener('pointerup', finishPointer);
+  options.canvas.addEventListener('pointercancel', finishPointer);
+  options.canvas.addEventListener('wheel', onWheel, { passive: false });
+  options.canvas.addEventListener('contextmenu', onContextMenu);
 
   return {
     destroy(): void {
-      options.canvas.removeEventListener("pointerdown", onPointerDown);
-      options.canvas.removeEventListener("pointermove", onPointerMove);
-      options.canvas.removeEventListener("pointerup", finishPointer);
-      options.canvas.removeEventListener("pointercancel", finishPointer);
-      options.canvas.removeEventListener("wheel", onWheel);
-      options.canvas.removeEventListener("contextmenu", onContextMenu);
+      options.canvas.removeEventListener('pointerdown', onPointerDown);
+      options.canvas.removeEventListener('pointermove', onPointerMove);
+      options.canvas.removeEventListener('pointerup', finishPointer);
+      options.canvas.removeEventListener('pointercancel', finishPointer);
+      options.canvas.removeEventListener('wheel', onWheel);
+      options.canvas.removeEventListener('contextmenu', onContextMenu);
     },
     getLaunchPreview(): LaunchDragPreview | null {
       return launchPreview;
