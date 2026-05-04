@@ -8,3 +8,15 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wasm-bindgen = "0.2"
+js-sys = "0.3"
+
+[lints.clippy]
+# エラーレベルの lint
+pedantic = { level = "warn", priority = -1 }
+# プロジェクトで許容するルール
+module_name_repetitions = "allow"  # 構造体名と関数名の重複
+missing_errors_doc = "allow"       # pub 関数の Errors セクション省略
+missing_panics_doc = "allow"       # pub 関数の Panics セクション省略
+cast_possible_truncation = "allow" # f64 → u32 などの明示的キャスト
+cast_sign_loss = "allow"           # i64 → u32 などの符号変換
+needless_pass_by_value = "allow"   # wasm-bindgen 公開 API は Vec 受け取りが必要

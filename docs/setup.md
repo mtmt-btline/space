@@ -140,6 +140,57 @@ npm run dev
 
 ---
 
+## リント・フォーマット
+
+このプロジェクトは、TypeScript では **Google TypeScript Style Guide に沿う方針** で lint/format を行います。
+
+| ツール | 対象 | 管理元 |
+|--------|------|--------|
+| **rustfmt** | Rust のフォーマット | Rust 公式チーム |
+| **Clippy** | Rust の静的解析 (lint) | Rust 公式チーム |
+| **ESLint** | TypeScript の静的解析 (lint) | OpenJS Foundation |
+| **Prettier** | TypeScript / CSS のフォーマット | Prettier OSS コミュニティ |
+
+### TypeScript（web/ で実行）
+
+```bash
+cd web
+
+# lint チェック（エラーのみ表示）
+npm run lint
+
+# lint エラーを自動修正
+npm run lint:fix
+
+# フォーマットチェック（差分表示のみ。ファイル変更なし）
+npm run format:check
+
+# フォーマット適用（ファイルを上書き）
+npm run format
+```
+
+### Rust（engine/ 対象、web/ から実行）
+
+```bash
+cd web
+
+# Clippy による静的解析
+npm run lint:rs
+
+# rustfmt でフォーマット適用（ファイルを上書き）
+npm run fmt:rs
+
+# フォーマットチェック（差分表示のみ。ファイル変更なし）
+npm run fmt:rs:check
+```
+
+> **Note**: `lint:rs` は WASM ターゲット向けにコンパイルするため、`wasm32-unknown-unknown` ターゲットが必要です（Step 1 で追加済みのはずです）。
+>
+> **補足**: TypeScript 側は ESLint ルール（single quote / semicolon など）で Google スタイルに寄せ、
+> 仕上げの整形は Prettier で一貫させています。
+
+---
+
 ## 本番ビルド（任意）
 
 ```bash
@@ -160,6 +211,13 @@ npm run preview # ビルド結果をローカルで確認
 | `npm run dev` | `web/` | WASM ビルド → 開発サーバー起動 |
 | `npm run build` | `web/` | WASM ビルド → 本番ビルド |
 | `npm run preview` | `web/` | 本番ビルドをローカルでプレビュー |
+| `npm run lint` | `web/` | TypeScript の ESLint チェック |
+| `npm run lint:fix` | `web/` | TypeScript の ESLint 自動修正 |
+| `npm run format:check` | `web/` | TypeScript の Prettier フォーマットチェック |
+| `npm run format` | `web/` | TypeScript の Prettier フォーマット適用 |
+| `npm run lint:rs` | `web/` | Rust の Clippy 静的解析 |
+| `npm run fmt:rs` | `web/` | Rust の rustfmt フォーマット適用 |
+| `npm run fmt:rs:check` | `web/` | Rust の rustfmt フォーマットチェック |
 
 ---
 

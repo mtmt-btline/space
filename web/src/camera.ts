@@ -11,7 +11,7 @@ function createCameraState(): CameraState {
 function worldToScreen(
   world: OrbitPoint,
   camera: CameraState,
-  canvas: HTMLCanvasElement
+  canvas: HTMLCanvasElement,
 ): OrbitPoint {
   const sx = (world.x - camera.x) * camera.zoom + canvas.width / 2;
   const sy = (world.y - camera.y) * camera.zoom + canvas.height / 2;
@@ -21,7 +21,7 @@ function worldToScreen(
 function screenToWorld(
   screen: OrbitPoint,
   camera: CameraState,
-  canvas: HTMLCanvasElement
+  canvas: HTMLCanvasElement,
 ): OrbitPoint {
   const wx = (screen.x - canvas.width / 2) / camera.zoom + camera.x;
   const wy = (screen.y - canvas.height / 2) / camera.zoom + camera.y;
@@ -37,17 +37,23 @@ function zoomCameraAt(
   camera: CameraState,
   multiplier: number,
   screenPoint: OrbitPoint,
-  canvas: HTMLCanvasElement
+  canvas: HTMLCanvasElement,
 ): void {
   const before = screenToWorld(screenPoint, camera, canvas);
-  camera.zoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.zoom * multiplier));
+  camera.zoom = Math.max(
+    camera.minZoom,
+    Math.min(camera.maxZoom, camera.zoom * multiplier),
+  );
   const after = screenToWorld(screenPoint, camera, canvas);
 
   camera.x += before.x - after.x;
   camera.y += before.y - after.y;
 }
 
-function updateCameraFocus(camera: CameraState, engine: SimulationEngine): void {
+function updateCameraFocus(
+  camera: CameraState,
+  engine: SimulationEngine,
+): void {
   const focused = engine.getFocusedBodyPosition();
   if (!focused) {
     return;
