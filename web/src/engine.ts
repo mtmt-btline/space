@@ -23,7 +23,6 @@ const BODY_META: Record<
   4: { name: '地球', color: '#5aa9f0', kind: 'planet', fixed: false },
   5: { name: '月', color: '#cfd5db', kind: 'moon', fixed: false },
   6: { name: '火星', color: '#d96a4a', kind: 'planet', fixed: false },
-  7: { name: '木星', color: '#c79a6b', kind: 'planet', fixed: false },
 };
 
 function missionStatusFromCode(code: number): RocketStatus {
@@ -86,7 +85,7 @@ class SimulationEngineWasmAdapter implements SimulationEngine {
     const eventsRaw = get_events();
 
     const bodies: BodyState[] = [];
-    for (let i = 0; i + 6 < bodiesRaw.length; i += 7) {
+    for (let i = 0; i + 7 < bodiesRaw.length; i += 8) {
       const id = Math.trunc(bodiesRaw[i]);
       const metaForBody = BODY_META[id];
       if (!metaForBody) {
@@ -100,7 +99,8 @@ class SimulationEngineWasmAdapter implements SimulationEngine {
         vx: bodiesRaw[i + 3],
         vy: bodiesRaw[i + 4],
         radius: bodiesRaw[i + 5],
-        mass: bodiesRaw[i + 6],
+        renderRadius: bodiesRaw[i + 6],
+        mass: bodiesRaw[i + 7],
         color: metaForBody.color,
         name: metaForBody.name,
         kind: metaForBody.kind,

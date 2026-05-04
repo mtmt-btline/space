@@ -18,7 +18,6 @@ declare global {
     readonly EARTH: number;
     readonly MOON: number;
     readonly MARS: number;
-    readonly JUPITER: number;
   };
 
   type BodyId = number;
@@ -40,6 +39,7 @@ declare global {
     vy: number;
     mass: number;
     radius: number;
+    renderRadius: number;
     color: string;
     name: string;
     kind: BodyKind;
