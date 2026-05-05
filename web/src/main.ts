@@ -113,9 +113,37 @@ let selectedRocketId: RocketId | null = null;
 let focusedBodyId: BodyId | null = null;
 let lastTimestamp = performance.now();
 let missionToastTimer = 0;
+// 前回描画時のロケットID列。リスト再構築の要否判定に使う。
+let renderedRocketIds: number[] = [];
 
 // JS 側で管理。WASM に移行しない。
 const trails = new Map<RocketId, OrbitPoint[]>();
+
+// rocketList 全体にイベント委譲を設定する。
+// ※ updateRocketList が毎フレーム innerHTML を書き換えると pointerdown〜click の間に
+//   要素が差し替えられてクリックが空振りするため、親要素へ委譲することで安定させている。
+rocketList.addEventListener('click', (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+
+  // 削除ボタン（×）のクリック: エンジンとトレイルから即座に除去する
+  const delBtn = target.closest<HTMLElement>('.rocket-delete[data-rocket-id]');
+  if (delBtn) {
+    e.stopPropagation();
+    const rocketId = Number(delBtn.dataset.rocketId);
+    engine.deleteRocket(rocketId);
+    trails.delete(rocketId); // トレイルも同時に削除（ポーズ中でも軌跡が残らないようにする）
+    if (selectedRocketId === rocketId) {
+      selectedRocketId = null;
+    }
+    return;
+  }
+
+  // ロケットチップ（#xx）のクリック: テレメトリ表示対象を切り替える
+  const chip = target.closest<HTMLElement>('.rocket-chip[data-rocket-id]');
+  if (chip) {
+    selectedRocketId = Number(chip.dataset.rocketId);
+  }
+});
 
 function updateTrails(rockets: RocketState[]): void {
   for (const rocket of rockets) {
@@ -216,45 +244,53 @@ function applyGravityFromUI(): void {
 }
 
 function updateRocketList(snapshot: SimulationSnapshot): void {
-  rocketList.innerHTML = '';
+  const currentIds = snapshot.rockets.map(r => r.id);
 
-  if (snapshot.rockets.length === 0) {
-    const empty = document.createElement('span');
-    empty.className = 'muted';
-    empty.textContent = 'ロケットなし';
-    rocketList.appendChild(empty);
-    return;
+  // ロケットの増減があったときのみ DOM を再構築する。
+  // 毎フレーム innerHTML をクリアすると pointerdown 後の RAF で要素が消え、
+  // クリックイベントが親まで伝播しなくなるため、差分がある場合のみ更新する。
+  const needsRebuild =
+    currentIds.length !== renderedRocketIds.length ||
+    currentIds.some((id, i) => id !== renderedRocketIds[i]);
+
+  if (needsRebuild) {
+    rocketList.innerHTML = '';
+    renderedRocketIds = currentIds;
+
+    if (snapshot.rockets.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'muted';
+      empty.textContent = 'ロケットなし';
+      rocketList.appendChild(empty);
+    } else {
+      for (const rocket of snapshot.rockets) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'rocket-chip';
+        chip.dataset.rocketId = String(rocket.id);
+        chip.textContent = `#${rocket.id}`;
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'rocket-delete';
+        del.dataset.rocketId = String(rocket.id);
+        del.textContent = '×';
+        del.title = `ロケット #${rocket.id} を削除`;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'rocket-entry';
+        wrap.appendChild(chip);
+        wrap.appendChild(del);
+        rocketList.appendChild(wrap);
+      }
+    }
   }
 
-  for (const rocket of snapshot.rockets) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'rocket-chip';
-    if (selectedRocketId === rocket.id) {
-      chip.classList.add('active');
-    }
-    chip.textContent = `#${rocket.id}`;
-    chip.addEventListener('click', () => {
-      selectedRocketId = rocket.id;
-    });
-
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'rocket-delete';
-    del.textContent = '×';
-    del.title = `ロケット #${rocket.id} を削除`;
-    del.addEventListener('click', () => {
-      engine.deleteRocket(rocket.id);
-      if (selectedRocketId === rocket.id) {
-        selectedRocketId = null;
-      }
-    });
-
-    const wrap = document.createElement('div');
-    wrap.className = 'rocket-entry';
-    wrap.appendChild(chip);
-    wrap.appendChild(del);
-    rocketList.appendChild(wrap);
+  // active クラスは選択状態が変わるたびに反映が必要なため、毎フレーム更新する
+  for (const chip of rocketList.querySelectorAll<HTMLElement>(
+    '.rocket-chip[data-rocket-id]',
+  )) {
+    chip.classList.toggle('active', Number(chip.dataset.rocketId) === selectedRocketId);
   }
 }
 
