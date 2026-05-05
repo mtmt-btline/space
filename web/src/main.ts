@@ -290,7 +290,10 @@ function updateRocketList(snapshot: SimulationSnapshot): void {
   for (const chip of rocketList.querySelectorAll<HTMLElement>(
     '.rocket-chip[data-rocket-id]',
   )) {
-    chip.classList.toggle('active', Number(chip.dataset.rocketId) === selectedRocketId);
+    chip.classList.toggle(
+      'active',
+      Number(chip.dataset.rocketId) === selectedRocketId,
+    );
   }
 }
 
