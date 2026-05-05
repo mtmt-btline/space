@@ -214,7 +214,7 @@ impl Simulation {
 
             if let Some(moon_body) = &moon {
                 let dist = (rocket.x - moon_body.x).hypot(rocket.y - moon_body.y);
-                if dist <= moon_body.radius + 2.2 {
+                if dist <= moon_body.radius + 0.5 {
                     rocket.status = MISSION_REACHED_MOON;
                     self.events.push(Event {
                         kind: EVENT_TYPE_MISSION,
