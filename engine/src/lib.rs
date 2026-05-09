@@ -44,6 +44,13 @@ const SUBSTEPS_F64: f64 = 8.0;
 const MAX_ROCKETS: usize = 5; // 同時飛行ロケット最大数
 const WORLD_BOUNDS: f64 = 2200.0; // この絶対座標を超えたロケットは Out of Bounds
 const MAX_GRAVITY_SCALE: f64 = 3.0; // 重力スケール上限
+// ─── ミッション判定マージン ──────────────────────────────────────────────────
+// 月への着陸判定：render_radius: 1.6 をベースとした判定値。
+// ユーザーが見る月の表面との一貫性を確保するため render_radius (1.6) の約 75% を用いる。
+const MOON_LAND_RADIUS_MARGIN: f64 = 1.2;
+// 太陽への落下判定：radius: 14.0 をベースとした判定値。
+// 放射圏の影響を考慮した安全マージン。
+const SUN_LAND_RADIUS_MARGIN: f64 = 1.2;
 
 /// 天体（惑星・衛星・恒星）の物理状態。
 #[derive(Clone)]
@@ -214,7 +221,7 @@ impl Simulation {
 
             if let Some(moon_body) = &moon {
                 let dist = (rocket.x - moon_body.x).hypot(rocket.y - moon_body.y);
-                if dist <= moon_body.radius + 0.5 {
+                if dist <= MOON_LAND_RADIUS_MARGIN {
                     rocket.status = MISSION_REACHED_MOON;
                     self.events.push(Event {
                         kind: EVENT_TYPE_MISSION,
@@ -228,7 +235,7 @@ impl Simulation {
 
             if let Some(sun_body) = &sun {
                 let dist = (rocket.x - sun_body.x).hypot(rocket.y - sun_body.y);
-                if dist <= sun_body.radius + 1.2 {
+                if dist <= sun_body.radius + SUN_LAND_RADIUS_MARGIN {
                     rocket.status = MISSION_FELL_INTO_SUN;
                     self.events.push(Event {
                         kind: EVENT_TYPE_MISSION,
