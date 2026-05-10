@@ -38,6 +38,7 @@ function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
         cnv: HTMLCanvasElement,
       ) => OrbitPoint;
       ORBIT_GUIDE_RADII: number[];
+      BODY_IDS: typeof BODY_IDS;
     };
 
     const width = canvas.width;
@@ -72,7 +73,14 @@ function createRenderer(canvas: HTMLCanvasElement): RendererHandle {
       canvas,
       runtime.worldToScreen,
     );
-    drawBodies(context, snapshot.bodies, camera, canvas, runtime.worldToScreen);
+    drawBodies(
+      context,
+      snapshot.bodies,
+      camera,
+      canvas,
+      runtime.worldToScreen,
+      runtime.BODY_IDS.EARTH,
+    );
     drawRockets(
       context,
       snapshot.rockets,
@@ -284,13 +292,35 @@ function drawBodies(
     cameraState: CameraState,
     cnv: HTMLCanvasElement,
   ) => OrbitPoint,
+  earthBodyId: BodyId,
 ): void {
+  // 月の描画位置補正用に地球を先に取得しておく。
+  // 物理位置では月が地球の描画半径(4.8)の内側に入って見えなくなるため、
+  // 月だけ地球から離れた位置に描画する（物理計算には影響しない）。
+  const earthForMoon = bodies.find(b => b.id === earthBodyId) ?? null;
+
   ctx.save();
   ctx.font = '12px system-ui';
   ctx.textBaseline = 'middle';
 
   for (const body of bodies) {
-    const center = worldToScreen({ x: body.x, y: body.y }, camera, canvas);
+    // 月だけは地球からの相対位置を引き伸ばして描画する。
+    // 地球から月への単位ベクトル方向に MOON_DISPLAY_DISTANCE だけ離して見せる。
+    let displayX = body.x;
+    let displayY = body.y;
+    if (body.kind === 'moon' && earthForMoon) {
+      const dx = body.x - earthForMoon.x;
+      const dy = body.y - earthForMoon.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 1e-6) {
+        const MOON_DISPLAY_DISTANCE = 8.0; // 地球描画半径(4.8)の外側
+        const scale = MOON_DISPLAY_DISTANCE / dist;
+        displayX = earthForMoon.x + dx * scale;
+        displayY = earthForMoon.y + dy * scale;
+      }
+    }
+
+    const center = worldToScreen({ x: displayX, y: displayY }, camera, canvas);
     const radius = Math.max(1.3, body.renderRadius * camera.zoom);
 
     if (body.glow) {
