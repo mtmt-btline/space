@@ -45,9 +45,9 @@ const MAX_ROCKETS: usize = 5; // 同時飛行ロケット最大数
 const WORLD_BOUNDS: f64 = 2200.0; // この絶対座標を超えたロケットは Out of Bounds
 const MAX_GRAVITY_SCALE: f64 = 3.0; // 重力スケール上限
 // ─── ミッション判定マージン ──────────────────────────────────────────────────
-// 月への着陸判定：render_radius: 1.6 をベースとした判定値。
-// ユーザーが見る月の表面との一貫性を確保するため render_radius (1.6) の約 75% を用いる。
-const MOON_LAND_RADIUS_MARGIN: f64 = 1.2;
+// 月への着陸判定：月の render_radius (0.1) と物理半径 (0.05) に合わせた小さな判定値。
+// 月の軌道半径 (moon_sep = 0.9) より十分小さくし、地球発射直後の誤判定を防ぐ。
+const MOON_LAND_RADIUS_MARGIN: f64 = 0.15;
 // 太陽への落下判定：radius: 14.0 をベースとした判定値。
 // 放射圏の影響を考慮した安全マージン。
 const SUN_LAND_RADIUS_MARGIN: f64 = 1.2;
@@ -312,10 +312,19 @@ fn make_orbiting_body(id: u32, radius_orbit: f64, phase_deg: f64, mass: f64, rad
 /// 太陽中心の円軌道速度だけを与えると地球周回軌道にならないため、
 /// 地球の速度ベクトルに地球相対の円軌道速度を加算して初期化する。
 /// `moon_relative_phase_deg` は地球を基準とした月の方位角（度）。
+///
+/// 質量比は現実準拠のまま（地球質量 1.0 / 太陽質量 333,000）なので、
+/// 地球のヒル半径は約 1.11 と小さく、月はその内側に置く必要がある。
+/// ここでは moon_sep = 0.9（ヒル半径の約81%）に設定し安定性を確保する。
+///
+/// 物理位置 0.9 は地球の描画半径 4.8 より内側になり画面上は重なって見えるが、
+/// 視認性のため renderer.ts 側で月の描画位置のみ地球外側に補正する。
+/// 物理計算（重力・ロケットとの距離・着陸判定）は補正前の物理位置で実施される。
 fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
     let earth_orbit_r = 160.0;
-    // 地球ヒル半径(約1.6)の内側へ置いて、太陽潮汐による離脱を抑える。
-    let moon_sep = 1.2;
+    // 地球ヒル半径 ≈ 160 * (1.0 / (3 * 333000))^(1/3) ≈ 1.11
+    // 安定マージンとしてヒル半径の約81%に配置する。
+    let moon_sep = 0.9;
     let earth_mass = 1.0;
     let sun_mass = 333_000.0;
 
@@ -330,7 +339,16 @@ fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
 
     // 月の方位角と地球周回の接線速度
     let theta_m = deg_to_rad(earth_phase_deg + moon_relative_phase_deg);
-    let v_moon_rel = circular_velocity(moon_sep, earth_mass);
+    // ソフトニング込みの実効重力で円軌道になる速度を使う。
+    // 加速度 a = G*M / (r² + ε²)、円軌道条件 v² / r = a より
+    // v = sqrt(G * M * r / (r² + ε²))
+    // moon_sep = 0.9 のとき d² = 0.81 に対し ε² = 0.04 が約5%効くため、
+    // 通常の sqrt(G*M/r) を使うと初速がわずかに過剰となり離脱の原因になる。
+    let v_moon_rel = {
+        let r = moon_sep;
+        let r2 = r * r;
+        (G * earth_mass * r / (r2 + GRAVITY_SOFTENING_SQ)).sqrt()
+    };
 
     Body {
         id: BODY_MOON,
@@ -339,8 +357,8 @@ fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
         vx: earth_vel_x - v_moon_rel * theta_m.sin(), // 地球速度 + 周回接線速度
         vy: earth_vel_y + v_moon_rel * theta_m.cos(),
         mass: 0.0123,
-        radius: 0.15,
-        render_radius: 1.6,
+        radius: 0.05,       // 物理判定用半径（月着陸判定に使用、物理位置基準）
+        render_radius: 1.6, // 描画用半径（renderer.ts 側で地球外側に位置補正される）
         fixed: false,
     }
 }
@@ -350,6 +368,8 @@ fn make_moon_body(earth_phase_deg: f64, moon_relative_phase_deg: f64) -> Body {
 fn create_solar_preset(phases_deg: [f64; 5]) -> Vec<Body> {
     let earth_phase = phases_deg[2];
     let mut earth = make_orbiting_body(BODY_EARTH, 160.0, earth_phase, 1.0, 0.6);
+    // 描画半径は元の太陽系プリセット値 4.8 を維持する。
+    // 月の描画は renderer.ts 側で地球外側に補正表示される。
     earth.render_radius = 4.8;
 
     vec![
